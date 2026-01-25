@@ -1,0 +1,75 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build output
+dist/
+*.js.map
+*.d.ts.map
+
+# IDE & Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Environment
+.env
+.env.local
+.env.*.local
+*.env
+
+# Runtime data (testMuBrowser specific)
+.profiles/
+.files/
+.extensions/
+.sessions/
+
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# TypeScript cache
+*.tsbuildinfo
+
+# npm
+.npm/
+.npmrc.local
+
+# Debug
+.debug/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Misc
+*.bak
+*.backup

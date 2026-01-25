@@ -1,0 +1,82 @@
+{
+  "name": "testmubrowser",
+  "version": "1.0.0",
+  "description": "The Enterprise-Grade Steel.dev Compatibility Layer for LambdaTest & Local Browsers. Run AI agents with Puppeteer, Playwright, or Selenium on cloud or local infrastructure.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "echo 'No linter configured yet'",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build && npm test",
+    "clean": "rm -rf dist",
+    "dev": "tsc --watch"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LambdaTest/testMuBrowser.git"
+  },
+  "homepage": "https://github.com/LambdaTest/testMuBrowser#readme",
+  "bugs": {
+    "url": "https://github.com/LambdaTest/testMuBrowser/issues"
+  },
+  "keywords": [
+    "puppeteer",
+    "playwright",
+    "selenium",
+    "lambdatest",
+    "steel",
+    "steel.dev",
+    "ai-agent",
+    "browser-automation",
+    "stealth",
+    "headless",
+    "web-scraping",
+    "testing",
+    "cloud-browser"
+  ],
+  "author": "LambdaTest <support@lambdatest.com>",
+  "license": "MIT",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "dependencies": {
+    "@lambdatest/node-tunnel": "^4.0.10",
+    "chrome-launcher": "^1.2.1",
+    "fs-extra": "^11.3.3",
+    "playwright-core": "^1.57.0",
+    "puppeteer-core": "^24.36.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^20.0.0",
+    "jest": "^30.2.0",
+    "ts-jest": "^29.4.6",
+    "typescript": "^5.9.3"
+  },
+  "peerDependencies": {
+    "puppeteer-core": ">=20.0.0",
+    "playwright-core": ">=1.40.0"
+  },
+  "peerDependenciesMeta": {
+    "puppeteer-core": {
+      "optional": true
+    },
+    "playwright-core": {
+      "optional": true
+    }
+  }
+}
