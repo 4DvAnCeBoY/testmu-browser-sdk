@@ -160,6 +160,30 @@ See the [examples/](examples/) directory for complete working demos:
 npx ts-node examples/local-demo.ts
 ```
 
+### 🧪 Running Tests
+
+Use the test runner script to verify all examples:
+
+```bash
+# Run all tests (local + LambdaTest cloud)
+./test.sh
+
+# Run quick local tests only (no LambdaTest needed)
+./test.sh quick
+
+# Run LambdaTest cloud tests only
+./test.sh cloud
+
+# Build only, no tests
+./test.sh build
+```
+
+**Prerequisites for cloud tests:**
+```bash
+export LT_USERNAME=your_username
+export LT_ACCESS_KEY=your_access_key
+```
+
 ---
 
 ## 🔄 Migrating from Steel.dev
