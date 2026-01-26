@@ -2,6 +2,7 @@
 import puppeteer, { Page, Browser } from 'puppeteer-core';
 import puppeteerExtra from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import * as Launcher from 'chrome-launcher';
 import {
     ScrapeParams,
     ScrapeResponse,
@@ -49,9 +50,18 @@ export class QuickActionsService {
             };
         }
 
-        // Launch transient browser
+        // Get Chrome executable path using chrome-launcher
+        const installations = Launcher.Launcher.getInstallations();
+        const chromePath = installations.length > 0 ? installations[0] : undefined;
+
+        if (!chromePath) {
+            throw new Error('Chrome not found. Please install Chrome or use a session-based quick action.');
+        }
+
+        // Launch transient browser with Chrome path
         const browser = await puppeteerExtra.launch({
             headless: true,
+            executablePath: chromePath
         });
         const page = await browser.newPage();
 
