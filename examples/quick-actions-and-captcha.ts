@@ -18,7 +18,7 @@
  *   npx ts-node examples/quick-actions-and-captcha.ts
  */
 
-import { testMuBrowser } from '../src/testMuBrowser/index.js';
+import { testMuBrowser } from '../dist/testMuBrowser';
 import * as fs from 'fs';
 
 const LT_USERNAME = process.env.LT_USERNAME || 'your_username';

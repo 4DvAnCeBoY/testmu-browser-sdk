@@ -1,4 +1,4 @@
-import { testMuBrowser } from '../src/testMuBrowser/index.js';
+import { testMuBrowser } from '../dist/testMuBrowser';
 import { generateObject } from 'ai';
 import { ollama } from 'ollama-ai-provider';
 import { z } from 'zod';

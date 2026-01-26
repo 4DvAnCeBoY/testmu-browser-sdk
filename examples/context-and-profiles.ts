@@ -16,7 +16,7 @@
  *   npx ts-node examples/context-and-profiles.ts
  */
 
-import { testMuBrowser, SessionContext } from '../src/testMuBrowser/index.js';
+import { testMuBrowser, SessionContext } from '../dist/testMuBrowser';
 
 const LT_USERNAME = process.env.LT_USERNAME || 'your_username';
 const LT_ACCESS_KEY = process.env.LT_ACCESS_KEY || 'your_access_key';

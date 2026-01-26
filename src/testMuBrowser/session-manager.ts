@@ -136,7 +136,8 @@ export class SessionManager {
                 'LT:Options': ltOptions
             };
 
-            const wsEndpoint = `wss://cdp.lambdatest.com/puppeteer?capabilities=${encodeURIComponent(
+            // LambdaTest requires authentication in the URL
+            const wsEndpoint = `wss://${username}:${accessKey}@cdp.lambdatest.com/puppeteer?capabilities=${encodeURIComponent(
                 JSON.stringify(capabilities)
             )}`;
 

@@ -17,7 +17,7 @@
  *   npx ts-node examples/files-extensions-credentials.ts
  */
 
-import { testMuBrowser } from '../src/testMuBrowser/index.js';
+import { testMuBrowser } from '../dist/testMuBrowser';
 import * as fs from 'fs';
 import * as path from 'path';
 

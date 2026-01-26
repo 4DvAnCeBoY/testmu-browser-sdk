@@ -16,7 +16,7 @@
  *   npx ts-node examples/ai-agent-computer-actions.ts
  */
 
-import { testMuBrowser } from '../src/testMuBrowser/index.js';
+import { testMuBrowser } from '../dist/testMuBrowser';
 
 // LambdaTest credentials
 const LT_USERNAME = process.env.LT_USERNAME || 'your_username';

@@ -17,7 +17,7 @@
  *   npx ts-node examples/full-api-demo.ts
  */
 
-import { testMuBrowser } from '../src/testMuBrowser/index.js';
+import { testMuBrowser } from '../dist/testMuBrowser';
 
 const LT_USERNAME = process.env.LT_USERNAME || 'your_username';
 const LT_ACCESS_KEY = process.env.LT_ACCESS_KEY || 'your_access_key';
