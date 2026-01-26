@@ -1,13 +1,13 @@
-# testMuBrowser 🚀
+# TestMu AI Browser Cloud SDK 🚀
 
-**The Enterprise-Grade Steel.dev Compatibility Layer for LambdaTest & Local Browsers**
+**The Enterprise-Grade Steel.dev Compatibility Layer for TestMu AI & Local Browsers**
 
 [![CI](https://github.com/LambdaTest/testMuBrowser/actions/workflows/ci.yml/badge.svg)](https://github.com/LambdaTest/testMuBrowser/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/testmubrowser.svg)](https://www.npmjs.com/package/testmubrowser)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Run **AI agents** with **Puppeteer**, **Playwright**, or **Selenium** on **LambdaTest cloud** or **local browsers** using the Steel.dev API.
+Run **AI agents** with **Puppeteer**, **Playwright**, or **Selenium** on **TestMu AI Browser cloud** or **local browsers** using the Steel.dev API.
 
 ---
 
@@ -24,7 +24,7 @@ import { testMuBrowser } from 'testmubrowser';
 
 const client = new testMuBrowser();
 
-// Create a session (local or LambdaTest cloud)
+// Create a session (local or TestMu AI cloud)
 const session = await client.sessions.create({
   local: true,  // or: lambdatestOptions: { build: 'My Build' }
   stealth: true,
