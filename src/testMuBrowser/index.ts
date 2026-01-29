@@ -104,8 +104,9 @@ export class testMuBrowser {
         this.context = new ContextService();
         this.events = new EventsService();
 
-        // Pass tunnel service to SessionManager for automatic handling
+        // Pass services to SessionManager for automatic handling
         this.sessionManager.setTunnelService(this.tunnel);
+        this.sessionManager.setExtensionService(this.extensions);
     }
 
     // ================== Quick Action Aliases (Steel.dev SDK style) ==================

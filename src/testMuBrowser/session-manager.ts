@@ -10,9 +10,12 @@ import {
 import { TunnelService } from './services/tunnel-service.js';
 import { LocalBrowserService } from './services/local-browser-service.js';
 import { EventsService } from './services/events-service.js';
+import { ExtensionService } from './services/extension-service.js';
+import { getRandomUserAgent } from './stealth-utils.js';
 
 export class SessionManager {
     private tunnelService: TunnelService | null = null;
+    private extensionService: ExtensionService | null = null;
     private eventsService: EventsService;
 
     constructor() {
@@ -23,9 +26,22 @@ export class SessionManager {
         this.tunnelService = service;
     }
 
+    setExtensionService(service: ExtensionService) {
+        this.extensionService = service;
+    }
+
     async createSession(config: SessionConfig): Promise<Session> {
-        const sessionId = config.sessionId || 'session_' + Date.now();
+        // Generate unique session ID with timestamp + random suffix
+        const randomSuffix = Math.random().toString(36).substring(2, 8);
+        const sessionId = config.sessionId || `session_${Date.now()}_${randomSuffix}`;
         const createdAt = new Date().toISOString();
+
+        // Auto-pick a random user-agent if stealth is configured and no explicit UA is set
+        let resolvedUserAgent = config.userAgent;
+        if (config.stealthConfig && config.stealthConfig.randomizeUserAgent !== false && !config.userAgent) {
+            resolvedUserAgent = getRandomUserAgent();
+            console.log(`SessionManager: Auto-selected stealth user-agent: ${resolvedUserAgent.substring(0, 50)}...`);
+        }
 
         if (config.customWebSocketUrl) {
             // Bring Your Own Browser (BYOB)
@@ -64,7 +80,7 @@ export class SessionManager {
                 dimensions: config.dimensions || { width: 1920, height: 1080 },
                 headless: config.headless,
                 stealthConfig: config.stealthConfig,
-                userAgent: config.userAgent
+                userAgent: resolvedUserAgent
             };
 
             SessionStore.start(session, null, kill);
@@ -76,13 +92,33 @@ export class SessionManager {
             const username = process.env.LT_USERNAME || 'generic_user';
             const accessKey = process.env.LT_ACCESS_KEY || 'generic_key';
 
+            // Map adapter to LambdaTest plugin name and WebSocket endpoint
+            const adapter = config.adapter || 'puppeteer';
+            const adapterPluginMap: Record<string, string> = {
+                'puppeteer': 'node-js-puppeteer',
+                'playwright': 'node-js-playwright',
+                'selenium': 'node-js-selenium'
+            };
+            const adapterEndpointMap: Record<string, string> = {
+                'puppeteer': 'puppeteer',
+                'playwright': 'playwright',
+                'selenium': 'selenium'
+            };
+            const plugin = adapterPluginMap[adapter];
+            const wsEndpointPath = adapterEndpointMap[adapter];
+
+            // Extract user's LT:Options if nested inside lambdatestOptions
+            const userLtOptions = config.lambdatestOptions?.['LT:Options'] || {};
+            const { 'LT:Options': _removed, ...restLambdatestOptions } = config.lambdatestOptions || {};
+
             // Map Steel-like config to LambdaTest capabilities
             const ltOptions: any = {
                 platformName: 'Windows 10',
                 project: 'testMuBrowser',
                 w3c: true,
-                plugin: 'node-js-puppeteer',
-                ...config.lambdatestOptions
+                plugin,
+                ...restLambdatestOptions,
+                ...userLtOptions
             };
 
             // Handle proxy configuration
@@ -130,6 +166,17 @@ export class SessionManager {
                 ltOptions.headless = config.headless;
             }
 
+            // Handle extensions via extensionIds config
+            if (config.extensionIds && config.extensionIds.length > 0 && this.extensionService) {
+                const cloudUrls = await this.extensionService.getCloudUrls(config.extensionIds);
+                if (cloudUrls.length > 0) {
+                    // Merge with any existing lambda:loadExtension URLs
+                    const existing = ltOptions['lambda:loadExtension'] || [];
+                    ltOptions['lambda:loadExtension'] = [...existing, ...cloudUrls];
+                    console.log(`Loading ${cloudUrls.length} extension(s) into session`);
+                }
+            }
+
             const capabilities = {
                 browserName: 'Chrome',
                 browserVersion: 'latest',
@@ -137,7 +184,8 @@ export class SessionManager {
             };
 
             // LambdaTest requires authentication in the URL
-            const wsEndpoint = `wss://${username}:${accessKey}@cdp.lambdatest.com/puppeteer?capabilities=${encodeURIComponent(
+            // Use correct endpoint based on adapter (puppeteer/playwright/selenium)
+            const wsEndpoint = `wss://${username}:${accessKey}@cdp.lambdatest.com/${wsEndpointPath}?capabilities=${encodeURIComponent(
                 JSON.stringify(capabilities)
             )}`;
 
@@ -158,7 +206,7 @@ export class SessionManager {
                 region: config.region,
                 solveCaptcha: config.solveCaptcha,
                 stealthConfig: config.stealthConfig,
-                userAgent: config.userAgent
+                userAgent: resolvedUserAgent
             };
 
             SessionStore.start(session, null);

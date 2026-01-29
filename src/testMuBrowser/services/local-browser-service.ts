@@ -1,10 +1,11 @@
-
-import * as ChromeLauncher from 'chrome-launcher';
 import http from 'http';
 
 export class LocalBrowserService {
     async launch(): Promise<{ websocketUrl: string, kill: () => Promise<void> }> {
         console.log('Searching for local Chrome installation...');
+
+        // Dynamic import for ESM-only chrome-launcher package
+        const ChromeLauncher = await import('chrome-launcher');
 
         // Launch Chrome using chrome-launcher (automagically finds Chrome/Canary/Chromium)
         const chrome = await ChromeLauncher.launch({

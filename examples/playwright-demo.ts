@@ -34,6 +34,7 @@ async function main() {
     console.log("\n📱 Creating LambdaTest session for Playwright...");
 
     const session = await client.sessions.create({
+        adapter: 'playwright',  // Use Playwright plugin on LambdaTest
         profileId: profileId,
         stealth: true,
         lambdatestOptions: {

@@ -1,8 +1,6 @@
-
 import puppeteer, { Page, Browser } from 'puppeteer-core';
 import puppeteerExtra from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-import * as Launcher from 'chrome-launcher';
 import {
     ScrapeParams,
     ScrapeResponse,
@@ -50,7 +48,8 @@ export class QuickActionsService {
             };
         }
 
-        // Get Chrome executable path using chrome-launcher
+        // Get Chrome executable path using chrome-launcher (dynamic import for ESM)
+        const Launcher = await import('chrome-launcher');
         const installations = Launcher.Launcher.getInstallations();
         const chromePath = installations.length > 0 ? installations[0] : undefined;
 
