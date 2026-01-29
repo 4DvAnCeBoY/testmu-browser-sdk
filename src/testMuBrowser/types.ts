@@ -72,6 +72,8 @@ export interface ProfileData {
 export interface StealthConfig {
     humanizeInteractions?: boolean;
     skipFingerprintInjection?: boolean;
+    randomizeUserAgent?: boolean;
+    randomizeViewport?: boolean;
 }
 
 // -------------------- Debug Config --------------------
@@ -108,6 +110,8 @@ export interface CredentialsConfig {
 }
 
 // -------------------- Session Configuration (Full Steel Parity) --------------------
+export type BrowserAdapter = 'puppeteer' | 'playwright' | 'selenium';
+
 export interface SessionConfig {
     // Original testMuBrowser options
     lambdatestOptions?: any;
@@ -119,6 +123,9 @@ export interface SessionConfig {
     tunnelName?: string;
     local?: boolean;
     customWebSocketUrl?: string;
+
+    // Adapter selection for LambdaTest (determines plugin type)
+    adapter?: BrowserAdapter;
 
     // Steel SDK Parity Options
     blockAds?: boolean;
@@ -273,12 +280,28 @@ export interface Extension {
     description?: string;
     enabled: boolean;
     createdAt: string;
+    /** LambdaTest S3 URL after cloud upload */
+    cloudUrl?: string;
+    /** Local file path */
+    localPath?: string;
 }
 
 export interface ExtensionUploadResponse {
     id: string;
     name: string;
     success: boolean;
+    /** LambdaTest S3 URL for automation */
+    cloudUrl?: string;
+}
+
+export interface ExtensionServiceConfig {
+    /** Directory to store extensions locally */
+    extensionsDir?: string;
+    /** LambdaTest credentials for cloud upload */
+    username?: string;
+    accessKey?: string;
+    /** Enable verbose logging */
+    verbose?: boolean;
 }
 
 // -------------------- Credentials Types --------------------

@@ -38,6 +38,11 @@ lerna-debug.log*
 .files/
 .extensions/
 .sessions/
+.credentials/
+.lambdatest/
+
+# Test output (screenshots, PDFs, downloads)
+test-output/
 
 
 # OS files
