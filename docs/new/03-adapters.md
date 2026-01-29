@@ -1,15 +1,16 @@
-# Adapters: Puppeteer and Playwright
+# Adapters: Puppeteer, Playwright, and Selenium
 
-testMuBrowser supports Puppeteer and Playwright for browser automation. You choose which one via the `adapter` field in session config. The underlying browser is the same — only the client-side API changes.
+testMuBrowser supports Puppeteer, Playwright, and Selenium for browser automation. You choose which one via the `adapter` field in session config. The underlying browser is the same — only the client-side API and connection protocol change.
 
 ## Comparison
 
-| Feature | Puppeteer | Playwright |
-|---------|-----------|------------|
-| Connection | WebSocket CDP | WebSocket CDP |
-| Stealth Plugin | puppeteer-extra-plugin-stealth | Custom init scripts |
-| Return Type | `Browser` | `{ browser, context, page }` |
-| Humanize Methods | `click`, `type` | `click`, `type`, `fill` |
+| Feature | Puppeteer | Playwright | Selenium |
+|---------|-----------|------------|----------|
+| Connection | WebSocket CDP | WebSocket CDP | HTTP (WebDriver) |
+| Stealth Plugin | puppeteer-extra-plugin-stealth | Custom init scripts | Not supported |
+| Return Type | `Browser` | `{ browser, context, page }` | `WebDriver` |
+| Humanize Methods | `click`, `type` | `click`, `type`, `fill` | N/A |
+| Profile Persistence | Cookies | Cookies | Cookies |
 
 ## Puppeteer Adapter
 
@@ -82,6 +83,58 @@ const { browser, context, page } = await client.playwright.connect(session);
 
 Returns a Playwright `Browser`, `BrowserContext`, and `Page`. Use them exactly as you would with plain Playwright.
 
+## Selenium Adapter
+
+### Basic Usage
+
+```typescript
+const session = await client.sessions.create({ adapter: 'selenium', ... });
+const driver = await client.selenium.connect(session);
+
+await driver.get('https://example.com');
+const title = await driver.getTitle();
+const screenshot = await driver.takeScreenshot();
+
+await driver.quit();
+await client.sessions.release(session.id);
+```
+
+### What Happens on Connect
+
+1. Reads `LT_USERNAME` and `LT_ACCESS_KEY` from environment variables
+2. Builds W3C capabilities with `LT:Options` from the session config
+3. If `userAgent` is set — passes it via `goog:chromeOptions` args (`--user-agent=...`)
+4. If `dimensions` is set — passes it via `goog:chromeOptions` args (`--window-size=...`) and `LT:Options.resolution`
+5. Connects to LambdaTest Selenium Hub at `https://hub.lambdatest.com/wd/hub` via HTTP (not WebSocket)
+6. If `profileId` is set — loads saved cookies and wraps `driver.quit()` to auto-save
+
+### Return Value
+
+```typescript
+const driver: WebDriver = await client.selenium.connect(session);
+```
+
+Returns a standard Selenium `WebDriver` object. Use it exactly as you would with plain `selenium-webdriver`.
+
+### Key Difference from Puppeteer/Playwright
+
+Selenium connects to the LambdaTest hub via HTTP, not WebSocket. The adapter ignores `session.websocketUrl` and builds its own connection from the session config and environment variables.
+
+### No Stealth Support
+
+The Selenium adapter does **not** support stealth mode. Selenium WebDriver operates over the WebDriver protocol (HTTP), which does not provide the low-level browser control needed for stealth evasions (hiding `navigator.webdriver`, spoofing plugins, patching WebGL, etc.). These evasions require JavaScript injection before page load, which is only possible with CDP-based adapters (Puppeteer/Playwright).
+
+If you need anti-detection, use the Puppeteer or Playwright adapter instead.
+
+### Profile Persistence
+
+Profile persistence works via cookies. On connect, if `profileId` is set, the adapter:
+
+1. Reads `.profiles/{id}.json` (same format as Playwright adapter)
+2. Groups cookies by domain
+3. Navigates to each domain and injects cookies via `driver.manage().addCookie()`
+4. On `driver.quit()`, saves current cookies back to the profile file
+
 ## Choosing an Adapter
 
 | Use Case | Recommended Adapter |
@@ -90,3 +143,5 @@ Returns a Playwright `Browser`, `BrowserContext`, and `Page`. Use them exactly a
 | Need stealth/anti-detection | Puppeteer (best plugin) or Playwright (custom scripts) |
 | Need built-in waiting/selectors | Playwright |
 | Need `page.fill()` or auto-waiting | Playwright |
+| Existing Selenium test suite | Selenium |
+| Standard WebDriver protocol | Selenium |

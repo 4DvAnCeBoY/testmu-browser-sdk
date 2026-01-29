@@ -40,6 +40,11 @@ export class PuppeteerAdapter {
             throw e;
         }
 
+        // Fetch LambdaTest dashboard URL (best effort, cloud sessions only)
+        if (!session.config.local && !session.config.customWebSocketUrl) {
+            await this.fetchDashboardUrl(session);
+        }
+
         // Apply stealth UA / viewport if stealth is configured
         if (stealthConfig) {
             const pages = await browser.pages();
@@ -114,6 +119,50 @@ export class PuppeteerAdapter {
         }
 
         return browser;
+    }
+
+    private async fetchDashboardUrl(session: Session): Promise<void> {
+        const username = process.env.LT_USERNAME;
+        const accessKey = process.env.LT_ACCESS_KEY;
+        if (!username || !accessKey) return;
+
+        try {
+            const https = await import('https');
+            const auth = Buffer.from(`${username}:${accessKey}`).toString('base64');
+
+            const data: string = await new Promise((resolve, reject) => {
+                const req = https.request({
+                    hostname: 'api.lambdatest.com',
+                    path: '/automation/api/v1/sessions?limit=1',
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Basic ${auth}`,
+                        'Accept': 'application/json'
+                    }
+                }, (res) => {
+                    let body = '';
+                    res.on('data', (chunk: any) => body += chunk);
+                    res.on('end', () => resolve(body));
+                });
+                req.on('error', reject);
+                req.setTimeout(10000, () => { req.destroy(); reject(new Error('timeout')); });
+                req.end();
+            });
+
+            const json = JSON.parse(data);
+            if (json.data && json.data.length > 0) {
+                const entry = json.data[0];
+                const testId = entry.test_id || entry.session_id;
+                const buildId = entry.build_id;
+                if (testId && buildId) {
+                    const url = `https://automation.lambdatest.com/test?build=${buildId}&testID=${testId}`;
+                    session.sessionViewerUrl = url;
+                    console.log(`Puppeteer Adapter: LambdaTest Dashboard: ${url}`);
+                }
+            }
+        } catch {
+            // Best effort — don't fail the connection if we can't get the URL
+        }
     }
 
     /**

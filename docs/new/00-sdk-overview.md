@@ -2,7 +2,7 @@
 
 ## What is testMuBrowser?
 
-testMuBrowser is a TypeScript SDK for browser automation that provides a unified API across **Puppeteer** and **Playwright**. It runs browsers on **LambdaTest cloud infrastructure** with built-in stealth, session persistence, and file/extension management.
+testMuBrowser is a TypeScript SDK for browser automation that provides a unified API across **Puppeteer**, **Playwright**, and **Selenium**. It runs browsers on **LambdaTest cloud infrastructure** with built-in stealth, session persistence, and file/extension management.
 
 It is designed as a drop-in alternative to Steel.dev, running on LambdaTest's 3000+ browser/OS infrastructure instead of Steel's hosted service.
 
@@ -19,11 +19,11 @@ It is designed as a drop-in alternative to Steel.dev, running on LambdaTest's 30
 ┌──────────────▼───────────────────────────────┐
 │           testMuBrowser SDK                  │
 │                                              │
-│  ┌─────────┐ ┌──────────┐                    │
-│  │Puppeteer│ │Playwright│          Adapters  │
-│  └────┬────┘ └─────┬────┘                    │
-│       │            │                         │
-│  ┌────▼────────────▼───────────────┐         │
+│  ┌─────────┐ ┌──────────┐ ┌────────┐          │
+│  │Puppeteer│ │Playwright│ │Selenium│ Adapters │
+│  └────┬────┘ └─────┬────┘ └───┬────┘          │
+│       │            │          │               │
+│  ┌────▼────────────▼──────────▼────┐         │
 │  │       Session Manager           │         │
 │  │  (creates sessions, builds WS)  │         │
 │  └─────────────┬───────────────────┘         │
@@ -35,7 +35,7 @@ It is designed as a drop-in alternative to Steel.dev, running on LambdaTest's 30
 │  │  Quick Actions (Scrape/SS/PDF)  │         │
 │  └─────────────────────────────────┘         │
 └──────────────┬───────────────────────────────┘
-               │ WebSocket (CDP)
+               │ WebSocket (CDP) / HTTP (WebDriver)
 ┌──────────────▼───────────────────────────────┐
 │           LambdaTest Cloud                   │
 │          (Real browsers)                     │
@@ -97,6 +97,7 @@ All features below are implemented and tested with integration tests in `test-fe
 | Session Management | [02-sessions.md](./02-sessions.md) | 01a, 01b, 01c, 01d |
 | Puppeteer Adapter | [03-adapters.md](./03-adapters.md) | 01a |
 | Playwright Adapter | [03-adapters.md](./03-adapters.md) | 01b |
+| Selenium Adapter | [03-adapters.md](./03-adapters.md) | 01e |
 | Stealth Mode | [04-stealth-mode.md](./04-stealth-mode.md) | 08 |
 | Quick Actions | [05-quick-actions.md](./05-quick-actions.md) | 02a, 02b, 02c |
 | Context Service | [06-context-service.md](./06-context-service.md) | 03 |

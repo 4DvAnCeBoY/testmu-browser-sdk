@@ -95,6 +95,9 @@ async function main() {
     console.log('\n2. Connecting via Playwright...');
     const { browser, page } = await client.playwright.connect(session);
     console.log('   ✅ Connected');
+    if (session.sessionViewerUrl) {
+        console.log(`   Dashboard: ${session.sessionViewerUrl}`);
+    }
 
     // Step 3: Navigate to Google (proves browser works)
     console.log('\n3. Navigating to google.com...');
