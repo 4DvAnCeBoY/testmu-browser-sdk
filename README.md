@@ -50,7 +50,7 @@ await browser.close();
 await client.sessions.release(session.id);
 ```
 
-## 🔧 LambdaTest Cloud
+## 🔧 TestMu AI Browser Cloud
 
 ```typescript
 const session = await client.sessions.create({
