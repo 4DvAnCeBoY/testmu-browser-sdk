@@ -39,6 +39,16 @@ testmu-browser-cloud session create --adapter playwright
 - Built-in auto-wait and retry logic
 - Best API ergonomics for test assertions
 
+**LambdaTest browser names for Playwright:**
+Use these exact `--browser-name` values with `--adapter playwright`:
+- `chrome` — Google Chrome
+- `MicrosoftEdge` — Microsoft Edge
+- `pw-chromium` — Playwright Chromium
+- `pw-firefox` — Firefox (NOT `Firefox`)
+- `pw-webkit` — WebKit/Safari
+
+**Common mistake:** Using `Firefox` or `Safari` as browser names. LambdaTest Playwright requires the `pw-` prefix for non-Chromium browsers.
+
 ## Selenium
 
 ```bash
