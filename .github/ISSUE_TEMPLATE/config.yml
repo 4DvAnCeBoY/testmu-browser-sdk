@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Discussions
+    url: https://github.com/LambdaTest/testMuBrowser/discussions
+    about: Ask questions and discuss ideas
+  - name: 📖 Documentation
+    url: https://github.com/LambdaTest/testMuBrowser/tree/main/docs
+    about: Read the documentation
+  - name: 🌐 LambdaTest Community
+    url: https://community.lambdatest.com/
+    about: Join the LambdaTest community
