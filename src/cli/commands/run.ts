@@ -84,6 +84,7 @@ function buildWsEndpoint(
       video: true,
       console: true,
       network: true,
+      headless: options.headless === true,
     },
   };
 
@@ -228,6 +229,7 @@ interface RunOptions {
   build?: string;
   name?: string;
   stealth?: boolean;
+  headless?: boolean;
   _scriptPath?: string;
 }
 
@@ -348,6 +350,7 @@ export function registerRunCommand(program: any): void {
     .option('--browser-version <version>', 'Browser version', 'latest')
     .option('--build <name>', 'Build name for LambdaTest dashboard')
     .option('--name <name>', 'Test name for LambdaTest dashboard')
+    .option('--headless', 'Run in headless mode (default: headed)')
     .action(async (script: string, options: RunOptions) => {
       try {
         await executeRun(script, options);
