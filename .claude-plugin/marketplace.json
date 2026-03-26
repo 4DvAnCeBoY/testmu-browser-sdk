@@ -1,7 +1,8 @@
 {
-  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "browser-cloud",
-  "description": "Cloud browser infrastructure for AI agents — run Puppeteer, Playwright, and Selenium on TestMu Cloud",
+  "metadata": {
+    "description": "Cloud browser infrastructure for AI agents — run Puppeteer, Playwright, and Selenium on TestMu Cloud"
+  },
   "owner": {
     "name": "TestMu AI",
     "email": "support@testmuai.com"
@@ -10,10 +11,18 @@
     {
       "name": "browser-cloud",
       "description": "Run browser automation scripts on TestMu Cloud. Scrape pages, take screenshots, execute Playwright/Puppeteer/Selenium tests, and drive browsers with computer actions for AI vision agents.",
+      "version": "1.0.1",
+      "author": {
+        "name": "TestMu AI",
+        "email": "support@testmuai.com"
+      },
       "source": "./",
-      "strict": false,
-      "skills": ["./skills/browser-cloud"],
-      "category": "development"
+      "category": "development",
+      "homepage": "https://github.com/4DvAnCeBoY/testmu-browser-sdk",
+      "repository": "https://github.com/4DvAnCeBoY/testmu-browser-sdk",
+      "license": "MIT",
+      "tags": ["browser", "automation", "puppeteer", "playwright", "selenium", "cloud", "testing", "scraping", "ai-agent"],
+      "strict": false
     }
   ]
 }
