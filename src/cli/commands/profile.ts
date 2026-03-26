@@ -24,7 +24,7 @@ export function registerProfileCommand(program: any): void {
     .action(async () => {
       try {
         const browser = getBrowser();
-        const profiles = await browser.profiles.listProfiles();
+        const profiles = await browser.profiles.list();
         Output.success(profiles);
       } catch (err) {
         Output.error(err instanceof Error ? err.message : String(err));
@@ -36,7 +36,7 @@ export function registerProfileCommand(program: any): void {
     .command('save <name>')
     .description('Save a profile from a session')
     .requiredOption('--session <id>', 'Session ID to save profile from')
-    .action(async (name: string, options: ProfileSessionOptions) => {
+    .action(async (name: string, _options: ProfileSessionOptions) => {
       try {
         const browser = getBrowser();
         const result = await browser.profiles.saveProfile(name, null);

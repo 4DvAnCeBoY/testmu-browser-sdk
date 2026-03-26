@@ -5,7 +5,6 @@ description: >
   scrape websites, take screenshots, generate PDFs, run Playwright/Puppeteer/Selenium
   scripts on cloud, automate browser interactions, fill forms, test web applications,
   or perform any browser-based task on TestMu Cloud infrastructure.
-allowed-tools: Bash(testmu-browser-cloud:*), Bash(npx @testmuai/browser-cloud:*)
 ---
 
 # Browser Cloud — TestMu AI
