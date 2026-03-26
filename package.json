@@ -55,6 +55,8 @@
   "files": [
     "dist",
     "skills",
+    "hooks",
+    "scripts",
     ".claude-plugin",
     "AGENTS.md",
     "README.md",
