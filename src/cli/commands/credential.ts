@@ -54,4 +54,42 @@ export function registerCredentialCommand(program: any): void {
         process.exit(1);
       }
     });
+
+  credential
+    .command('get <id>')
+    .description('Get a credential by ID')
+    .action(async (id: string) => {
+      try {
+        const browser = getBrowser();
+        const result = await browser.credentials.get(id);
+        if (result) {
+          Output.success(result);
+        } else {
+          Output.error(`Credential ${id} not found`);
+          process.exit(1);
+        }
+      } catch (err) {
+        Output.error(err instanceof Error ? err.message : String(err));
+        process.exit(1);
+      }
+    });
+
+  credential
+    .command('find <url>')
+    .description('Find a credential for a URL')
+    .action(async (url: string) => {
+      try {
+        const browser = getBrowser();
+        const result = await browser.credentials.findForUrl(url);
+        if (result) {
+          Output.success(result);
+        } else {
+          Output.error(`No credential found for URL: ${url}`);
+          process.exit(1);
+        }
+      } catch (err) {
+        Output.error(err instanceof Error ? err.message : String(err));
+        process.exit(1);
+      }
+    });
 }

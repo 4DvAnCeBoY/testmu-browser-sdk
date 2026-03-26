@@ -52,4 +52,18 @@ export function registerContextCommand(program: any): void {
         process.exit(1);
       }
     });
+
+  context
+    .command('clear <sessionId>')
+    .description('Clear browser context for a session')
+    .action(async (sessionId: string) => {
+      try {
+        const browser = getBrowser();
+        await browser.context.clearContext(null);
+        Output.success({ message: `Context cleared for session ${sessionId}` });
+      } catch (err) {
+        Output.error(err instanceof Error ? err.message : String(err));
+        process.exit(1);
+      }
+    });
 }

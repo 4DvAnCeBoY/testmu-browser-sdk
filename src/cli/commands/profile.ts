@@ -1,6 +1,7 @@
 import { Browser } from '../../testmu-cloud/index';
 import { Output } from '../output';
 import { ConfigManager } from '../config';
+import fs from 'fs-extra';
 
 function getBrowser(): Browser {
   const config = new ConfigManager();
@@ -69,6 +70,41 @@ export function registerProfileCommand(program: any): void {
         const browser = getBrowser();
         const deleted = await (browser.profiles as any).delete(name);
         Output.success({ deleted, profile: name });
+      } catch (err) {
+        Output.error(err instanceof Error ? err.message : String(err));
+        process.exit(1);
+      }
+    });
+
+  profile
+    .command('export <name>')
+    .description('Export a profile to JSON')
+    .option('--output <path>', 'Save exported JSON to file path')
+    .action(async (name: string, options: { output?: string }) => {
+      try {
+        const browser = getBrowser();
+        const json = await browser.profiles.export(name);
+        if (options.output) {
+          await fs.writeFile(options.output, json);
+          Output.success({ message: `Profile exported to ${options.output}` });
+        } else {
+          Output.success(JSON.parse(json));
+        }
+      } catch (err) {
+        Output.error(err instanceof Error ? err.message : String(err));
+        process.exit(1);
+      }
+    });
+
+  profile
+    .command('import <filePath>')
+    .description('Import a profile from a JSON file')
+    .action(async (filePath: string) => {
+      try {
+        const browser = getBrowser();
+        const json = await fs.readFile(filePath, 'utf-8');
+        const result = await browser.profiles.import(json);
+        Output.success(result);
       } catch (err) {
         Output.error(err instanceof Error ? err.message : String(err));
         process.exit(1);

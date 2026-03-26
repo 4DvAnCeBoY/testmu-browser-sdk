@@ -57,4 +57,18 @@ export function registerTunnelCommand(program: any): void {
         process.exit(1);
       }
     });
+
+  tunnel
+    .command('status')
+    .description('Get the current tunnel status')
+    .action(() => {
+      try {
+        const browser = getBrowser();
+        const running = browser.tunnel.getStatus();
+        Output.success({ running });
+      } catch (err) {
+        Output.error(err instanceof Error ? err.message : String(err));
+        process.exit(1);
+      }
+    });
 }

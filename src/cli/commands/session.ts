@@ -2,6 +2,7 @@ import { Browser } from '../../testmu-cloud/index';
 import { Output } from '../output';
 import { ConfigManager } from '../config';
 import { BrowserAdapter, Session, ReleaseResponse } from '../../testmu-cloud/types';
+import fs from 'fs-extra';
 
 let browserInstance: Browser | null = null;
 
@@ -26,10 +27,40 @@ interface SessionCreateOptions {
   headless?: boolean;
   region?: string;
   timeout?: string;
+  sessionContext?: string;
+  credentials?: boolean;
+  platformName?: string;
+  browserName?: string;
+  browserVersion?: string;
+  deviceName?: string;
+  build?: string;
+  name?: string;
 }
 
 export async function executeSessionCreate(options: SessionCreateOptions): Promise<Session> {
   const browser = getBrowser();
+  const config = new ConfigManager();
+  const creds = config.getCredentials();
+
+  let sessionContext: any = undefined;
+  if (options.sessionContext) {
+    sessionContext = await fs.readJson(options.sessionContext);
+  }
+
+  const lambdatestOptions: Record<string, any> = {};
+  if (options.platformName) lambdatestOptions.platformName = options.platformName;
+  if (options.browserName) lambdatestOptions.browserName = options.browserName;
+  if (options.browserVersion) lambdatestOptions.browserVersion = options.browserVersion;
+  if (options.deviceName) lambdatestOptions.deviceName = options.deviceName;
+  if (options.build) lambdatestOptions.build = options.build;
+  if (options.name) lambdatestOptions.name = options.name;
+  if (creds.username || creds.accessKey) {
+    lambdatestOptions['LT:Options'] = {
+      username: creds.username,
+      accessKey: creds.accessKey,
+    };
+  }
+
   const session = await browser.sessions.create({
     adapter: (options.adapter as BrowserAdapter) || 'puppeteer',
     stealthConfig: options.stealth ? { humanizeInteractions: true, randomizeUserAgent: true } : undefined,
@@ -40,6 +71,9 @@ export async function executeSessionCreate(options: SessionCreateOptions): Promi
     headless: options.headless,
     region: options.region,
     timeout: options.timeout ? parseInt(options.timeout, 10) : undefined,
+    sessionContext,
+    credentials: options.credentials ? {} : undefined,
+    lambdatestOptions: Object.keys(lambdatestOptions).length > 0 ? lambdatestOptions : undefined,
   });
   return session;
 }
@@ -79,6 +113,14 @@ export function registerSessionCommand(program: any): void {
     .option('--headless', 'Run in headless mode')
     .option('--region <region>', 'Cloud region')
     .option('--timeout <ms>', 'Session timeout in ms')
+    .option('--session-context <path>', 'Path to JSON file with saved auth context (cookies, localStorage)')
+    .option('--credentials', 'Enable auto-fill credentials')
+    .option('--platform-name <name>', 'Platform name, e.g. "Windows 11", "macOS Sonoma"')
+    .option('--browser-name <name>', 'Browser name, e.g. "Chrome", "Firefox", "Safari"')
+    .option('--browser-version <version>', 'Browser version, e.g. "latest", "120"')
+    .option('--device-name <name>', 'Device name, e.g. "Samsung Galaxy S24"')
+    .option('--build <name>', 'Build name for LambdaTest dashboard')
+    .option('--name <name>', 'Session name for LambdaTest dashboard')
     .action(async (options: SessionCreateOptions) => {
       try {
         const session = await executeSessionCreate(options);

@@ -83,4 +83,38 @@ export function registerFileCommand(program: any): void {
         process.exit(1);
       }
     });
+
+  file
+    .command('delete-all <sessionId>')
+    .description('Delete all files in a session')
+    .action(async (sessionId: string) => {
+      try {
+        const browser = getBrowser();
+        await browser.files.deleteAllSessionFiles(sessionId);
+        Output.success({ message: `All files deleted from session ${sessionId}` });
+      } catch (err) {
+        Output.error(err instanceof Error ? err.message : String(err));
+        process.exit(1);
+      }
+    });
+
+  file
+    .command('download-archive <sessionId>')
+    .description('Download all files from a session as an archive')
+    .option('--output <path>', 'Save archive to file path')
+    .action(async (sessionId: string, options: FileDownloadOptions) => {
+      try {
+        const browser = getBrowser();
+        const buffer = await browser.files.downloadSessionArchive(sessionId);
+        if (options.output) {
+          await fs.writeFile(options.output, buffer);
+          Output.success({ message: `Archive saved to ${options.output}` });
+        } else {
+          Output.success({ base64: buffer.toString('base64'), size: buffer.length });
+        }
+      } catch (err) {
+        Output.error(err instanceof Error ? err.message : String(err));
+        process.exit(1);
+      }
+    });
 }
