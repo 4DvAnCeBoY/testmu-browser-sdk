@@ -2,20 +2,28 @@ import { resolveRunner, detectAdapter, usesOurSdk } from '../commands/run';
 
 describe('run command', () => {
   describe('resolveRunner', () => {
-    it('returns ts-node for .ts files', () => {
-      expect(resolveRunner('test.ts')).toBe('ts-node');
+    it('returns ts-node runner for .ts files', () => {
+      const result = resolveRunner('test.ts');
+      // May resolve to local ts-node or npx fallback
+      expect(result.cmd).toMatch(/ts-node|npx/);
     });
 
     it('returns node for .js files', () => {
-      expect(resolveRunner('test.js')).toBe('node');
+      const result = resolveRunner('test.js');
+      expect(result.cmd).toBe('node');
+      expect(result.args).toEqual([]);
     });
 
     it('returns node for .mjs files', () => {
-      expect(resolveRunner('test.mjs')).toBe('node');
+      const result = resolveRunner('test.mjs');
+      expect(result.cmd).toBe('node');
+      expect(result.args).toEqual([]);
     });
 
     it('returns node for .cjs files', () => {
-      expect(resolveRunner('test.cjs')).toBe('node');
+      const result = resolveRunner('test.cjs');
+      expect(result.cmd).toBe('node');
+      expect(result.args).toEqual([]);
     });
 
     it('throws for unsupported extensions', () => {

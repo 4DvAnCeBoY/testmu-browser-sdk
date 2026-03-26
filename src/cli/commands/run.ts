@@ -5,15 +5,26 @@ import os from 'os';
 import { Output } from '../output';
 import { ConfigManager } from '../config';
 
-export function resolveRunner(scriptPath: string): string {
+export function resolveRunner(scriptPath: string): { cmd: string; args: string[] } {
   const ext = path.extname(scriptPath).toLowerCase();
   switch (ext) {
-    case '.ts':
-      return 'ts-node';
+    case '.ts': {
+      // Check for local ts-node first, then npx fallback
+      const localTsNode = path.join(path.dirname(scriptPath), 'node_modules', '.bin', 'ts-node');
+      const projectTsNode = path.join(process.cwd(), 'node_modules', '.bin', 'ts-node');
+      if (fs.existsSync(localTsNode)) {
+        return { cmd: localTsNode, args: [] };
+      }
+      if (fs.existsSync(projectTsNode)) {
+        return { cmd: projectTsNode, args: [] };
+      }
+      // Use npx as fallback (works without global install)
+      return { cmd: 'npx', args: ['ts-node'] };
+    }
     case '.js':
     case '.mjs':
     case '.cjs':
-      return 'node';
+      return { cmd: 'node', args: [] };
     default:
       throw new Error(`Unsupported file type: ${ext}. Use .ts, .js, .mjs, or .cjs`);
   }
@@ -249,7 +260,7 @@ export async function executeRun(scriptPath: string, options: RunOptions): Promi
     process.exit(1);
   }
 
-  const runner = resolveRunner(absolutePath);
+  const { cmd: runnerCmd, args: runnerBaseArgs } = resolveRunner(absolutePath);
   const scriptContent = fs.readFileSync(absolutePath, 'utf-8');
 
   // Check if script already uses our SDK
@@ -275,7 +286,7 @@ export async function executeRun(scriptPath: string, options: RunOptions): Promi
   if (scriptUsesOurSdk) {
     // Script uses our SDK — just run it with credentials in env
     process.stderr.write('[TestMu Cloud] Script uses @testmuai/browser-cloud SDK — running directly\n');
-    runnerArgs = [absolutePath];
+    runnerArgs = [...runnerBaseArgs, absolutePath];
   } else {
     // Script uses standard Playwright/Puppeteer/Selenium — inject preload
     const wsEndpoint = buildWsEndpoint(creds.username, creds.accessKey, detectedAdapter, options);
@@ -288,11 +299,11 @@ export async function executeRun(scriptPath: string, options: RunOptions): Promi
     process.stderr.write(`[TestMu Cloud] Detected ${detectedAdapter} script — patching to use LambdaTest cloud\n`);
     process.stderr.write(`[TestMu Cloud] Platform: ${options.platformName || 'Windows 10'} | Browser: ${options.browserName || 'Chrome'} ${options.browserVersion || 'latest'}\n`);
 
-    runnerArgs = ['--require', preloadPath, absolutePath];
+    runnerArgs = [...runnerBaseArgs, '--require', preloadPath, absolutePath];
   }
 
   return new Promise((resolve) => {
-    const child = spawn(runner, runnerArgs, {
+    const child = spawn(runnerCmd, runnerArgs, {
       env,
       stdio: ['inherit', 'pipe', 'pipe'],
       cwd: path.dirname(absolutePath),
@@ -330,8 +341,8 @@ export async function executeRun(scriptPath: string, options: RunOptions): Promi
       if (preloadPath && fs.existsSync(preloadPath)) {
         fs.removeSync(preloadPath);
       }
-      if (err.message.includes('ENOENT') && runner === 'ts-node') {
-        Output.error('ts-node not found. Install it: npm install -g ts-node typescript');
+      if (err.message.includes('ENOENT') && runnerCmd === 'npx') {
+        Output.error('ts-node not found. Install it: npm install -D ts-node typescript');
       } else {
         Output.error(err.message);
       }
