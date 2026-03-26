@@ -50,7 +50,7 @@ export async function executeRun(scriptPath: string, options: RunOptions): Promi
     (env as any).TESTMU_DEFAULT_ADAPTER = options.adapter;
   }
 
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const child = spawn(runner, [absolutePath], {
       env,
       stdio: ['inherit', 'pipe', 'pipe'],

@@ -3,6 +3,20 @@
 import { Command } from 'commander';
 import { Output } from './output';
 import { executeSetup } from './commands/setup';
+import { registerScrapeCommand } from './commands/scrape';
+import { registerScreenshotCommand } from './commands/screenshot';
+import { registerPdfCommand } from './commands/pdf';
+import { registerSessionCommand } from './commands/session';
+import { registerComputerCommands } from './commands/computer';
+import { registerRunCommand } from './commands/run';
+import { registerFileCommand } from './commands/file';
+import { registerContextCommand } from './commands/context';
+import { registerProfileCommand } from './commands/profile';
+import { registerExtensionCommand } from './commands/extension';
+import { registerCredentialCommand } from './commands/credential';
+import { registerCaptchaCommand } from './commands/captcha';
+import { registerTunnelCommand } from './commands/tunnel';
+import { registerEventsCommand } from './commands/events';
 
 const program = new Command();
 
@@ -31,5 +45,29 @@ program
       process.exit(1);
     }
   });
+
+// Quick Actions
+registerScrapeCommand(program);
+registerScreenshotCommand(program);
+registerPdfCommand(program);
+
+// Session Management
+registerSessionCommand(program);
+
+// Computer Actions
+registerComputerCommands(program);
+
+// Script Execution
+registerRunCommand(program);
+
+// Service Commands
+registerFileCommand(program);
+registerContextCommand(program);
+registerProfileCommand(program);
+registerExtensionCommand(program);
+registerCredentialCommand(program);
+registerCaptchaCommand(program);
+registerTunnelCommand(program);
+registerEventsCommand(program);
 
 program.parse(process.argv);

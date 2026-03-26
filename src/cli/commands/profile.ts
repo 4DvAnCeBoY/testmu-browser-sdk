@@ -67,7 +67,7 @@ export function registerProfileCommand(program: any): void {
     .action(async (name: string) => {
       try {
         const browser = getBrowser();
-        const deleted = await browser.profiles.delete(name);
+        const deleted = await (browser.profiles as any).delete(name);
         Output.success({ deleted, profile: name });
       } catch (err) {
         Output.error(err instanceof Error ? err.message : String(err));
