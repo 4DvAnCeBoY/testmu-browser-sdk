@@ -49,8 +49,14 @@
   "engines": {
     "node": ">=18.0.0"
   },
+  "bin": {
+    "testmu-browser-cloud": "./dist/cli/index.js"
+  },
   "files": [
     "dist",
+    "skills",
+    ".claude-plugin",
+    "AGENTS.md",
     "README.md",
     "LICENSE",
     "CHANGELOG.md"
@@ -58,6 +64,7 @@
   "dependencies": {
     "@lambdatest/node-tunnel": "^4.0.10",
     "chrome-launcher": "^1.2.1",
+    "commander": "^14.0.3",
     "fs-extra": "^11.3.3",
     "playwright-core": ">=1.40.0",
     "puppeteer-core": ">=20.0.0",
