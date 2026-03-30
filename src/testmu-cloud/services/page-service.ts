@@ -104,6 +104,8 @@ export class PageService {
         if (framework === 'playwright') {
             await element.fill(value);
         } else {
+            // Puppeteer's type() appends — clear first, then type
+            await element.evaluate((el: any) => { el.value = ''; el.dispatchEvent(new Event('input', { bubbles: true })); });
             await element.type(value);
         }
     }
@@ -217,7 +219,8 @@ export class PageService {
             if (framework === 'playwright') {
                 await page.mouse.wheel(deltaX, deltaY);
             } else {
-                await page.mouse.wheel({ deltaX, deltaY });
+                // Use evaluate for broad Puppeteer version compatibility (mouse.wheel API changed in v19)
+                await page.evaluate((dx: number, dy: number) => window.scrollBy(dx, dy), deltaX, deltaY);
             }
         }
     }

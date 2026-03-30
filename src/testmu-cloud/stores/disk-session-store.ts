@@ -13,7 +13,7 @@ export class DiskSessionStore implements SessionStore {
         // Atomic write: write to temp, then rename
         const tmpPath = path.join(dir, `session.${process.pid}.tmp`);
         await fs.writeFile(tmpPath, data, { mode: 0o600 });
-        await fs.rename(tmpPath, path.join(dir, 'session.json'));
+        await fs.move(tmpPath, path.join(dir, 'session.json'), { overwrite: true });
     }
 
     async get(id: string): Promise<Session | null> {

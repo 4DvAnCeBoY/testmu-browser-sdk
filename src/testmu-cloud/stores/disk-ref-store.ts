@@ -37,7 +37,7 @@ export class DiskRefStore implements RefStore {
         const tmpPath = path.join(dir, `refs.${process.pid}.tmp`);
         await fs.writeFile(tmpPath, data, { mode: 0o600 });
         const filePath = path.join(dir, this.refsFileName(clientId));
-        await fs.rename(tmpPath, filePath);
+        await fs.move(tmpPath, filePath, { overwrite: true });
 
         // Update cache after write
         const stat = await fs.stat(filePath);

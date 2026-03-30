@@ -55,8 +55,8 @@ export async function savePreviousSnapshot(sessionId: string, snapshot: any, cli
     await fs.ensureDir(dir);
     const tmpPath = path.join(dir, `prev-snapshot.${process.pid}.tmp`);
     await fs.writeFile(tmpPath, JSON.stringify(snapshot), { mode: 0o600 });
-    const fileName = clientId ? `prev-snapshot.${clientId}.json` : 'prev-snapshot.json';
-    await fs.rename(tmpPath, path.join(dir, fileName));
+    const fileName = clientId ? `prev-snapshot.${sanitizeClientId(clientId)}.json` : 'prev-snapshot.json';
+    await fs.move(tmpPath, path.join(dir, fileName), { overwrite: true });
 }
 
 /**
@@ -64,7 +64,7 @@ export async function savePreviousSnapshot(sessionId: string, snapshot: any, cli
  * When clientId is provided, reads from prev-snapshot.{clientId}.json.
  */
 export async function loadPreviousSnapshot(sessionId: string, clientId?: string): Promise<any | null> {
-    const fileName = clientId ? `prev-snapshot.${clientId}.json` : 'prev-snapshot.json';
+    const fileName = clientId ? `prev-snapshot.${sanitizeClientId(clientId)}.json` : 'prev-snapshot.json';
     const filePath = path.join(SESSIONS_DIR, sessionId, fileName);
     if (!await fs.pathExists(filePath)) return null;
     try {
@@ -88,7 +88,7 @@ export async function savePageState(sessionId: string, url: string, clientId?: s
     const fileName = pageStateFileName(clientId);
     const tmpPath = path.join(dir, `${fileName}.${process.pid}.tmp`);
     await fs.writeFile(tmpPath, JSON.stringify({ url, timestamp: Date.now() }), { mode: 0o600 });
-    await fs.rename(tmpPath, path.join(dir, fileName));
+    await fs.move(tmpPath, path.join(dir, fileName), { overwrite: true });
 }
 
 /**
