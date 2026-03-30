@@ -43,11 +43,12 @@ server.tool(
 
 server.tool(
     'browser_snapshot',
-    'Capture accessibility tree with @ref element IDs. Returns page structure for AI interaction.',
+    'Capture accessibility tree with @ref element IDs. Returns page structure for AI interaction. Use --diff (browser_snapshot_diff) to see cross-process persistent changes since last snapshot. Use compact mode for token-efficient output. Use clientId to isolate parallel sessions.',
     {
         sessionId: z.string().optional().describe('Session ID (auto-detects if only one active)'),
-        compact: z.boolean().optional().describe('Token-efficient text output'),
+        compact: z.boolean().optional().describe('Token-efficient text output; omits verbose structural data'),
         maxElements: z.number().optional().describe('Max refs to assign (default: 500)'),
+        clientId: z.string().optional().describe('Client ID for parallel isolation; scopes @ref state to this client'),
     },
     async ({ sessionId, compact, maxElements }) => {
         const result = await withPage(sessionId, async (ps, page) => {
@@ -62,10 +63,11 @@ server.tool(
 
 server.tool(
     'browser_snapshot_diff',
-    'Show changes since last snapshot. Useful after performing actions.',
+    'Show changes since last snapshot (cross-process persistent via disk). Useful after performing actions to see what changed without re-scanning the full tree.',
     {
         sessionId: z.string().optional().describe('Session ID'),
         compact: z.boolean().optional().describe('Token-efficient text output'),
+        clientId: z.string().optional().describe('Client ID for parallel isolation; must match the clientId used in browser_snapshot'),
     },
     async ({ sessionId, compact }) => {
         const result = await withPage(sessionId, async (ps, page) => {
@@ -127,10 +129,11 @@ server.tool(
 
 server.tool(
     'browser_click',
-    'Click an element by @ref ID or CSS selector',
+    'Click an element. Accepts @ref IDs from snapshot (e.g. @e5) or standard CSS selectors.',
     {
-        selector: z.string().describe('Element @ref (e.g. @e5) or CSS selector'),
+        selector: z.string().describe('@ref ID from snapshot (e.g. @e5) or CSS selector'),
         sessionId: z.string().optional().describe('Session ID'),
+        clientId: z.string().optional().describe('Client ID for parallel isolation'),
     },
     async ({ selector, sessionId }) => {
         await withPage(sessionId, async (ps, page) => ps.click(page, selector));
@@ -140,11 +143,12 @@ server.tool(
 
 server.tool(
     'browser_fill',
-    'Fill an input field by @ref ID or CSS selector',
+    'Fill an input field. Accepts @ref IDs from snapshot (e.g. @e5) or standard CSS selectors. Clears the field first then sets value.',
     {
-        selector: z.string().describe('Element @ref or CSS selector'),
+        selector: z.string().describe('@ref ID from snapshot (e.g. @e5) or CSS selector'),
         value: z.string().describe('Text to fill'),
         sessionId: z.string().optional().describe('Session ID'),
+        clientId: z.string().optional().describe('Client ID for parallel isolation'),
     },
     async ({ selector, value, sessionId }) => {
         await withPage(sessionId, async (ps, page) => ps.fill(page, selector, value));
@@ -154,11 +158,12 @@ server.tool(
 
 server.tool(
     'browser_type',
-    'Type text with key events into an element',
+    'Type text with key events into an element. Accepts @ref IDs from snapshot (e.g. @e5) or CSS selectors. Unlike fill, dispatches real key events character by character.',
     {
-        selector: z.string().describe('Element @ref or CSS selector'),
+        selector: z.string().describe('@ref ID from snapshot (e.g. @e5) or CSS selector'),
         text: z.string().describe('Text to type'),
         sessionId: z.string().optional().describe('Session ID'),
+        clientId: z.string().optional().describe('Client ID for parallel isolation'),
     },
     async ({ selector, text, sessionId }) => {
         await withPage(sessionId, async (ps, page) => ps.type(page, selector, text));
@@ -168,11 +173,12 @@ server.tool(
 
 server.tool(
     'browser_select',
-    'Select a dropdown option',
+    'Select a dropdown option. Accepts @ref IDs from snapshot (e.g. @e5) or CSS selectors. Supports multi-select by passing multiple values.',
     {
-        selector: z.string().describe('Element @ref or CSS selector'),
+        selector: z.string().describe('@ref ID from snapshot (e.g. @e5) or CSS selector'),
         values: z.array(z.string()).describe('Values to select'),
         sessionId: z.string().optional().describe('Session ID'),
+        clientId: z.string().optional().describe('Client ID for parallel isolation'),
     },
     async ({ selector, values, sessionId }) => {
         await withPage(sessionId, async (ps, page) => ps.select(page, selector, ...values));
@@ -221,12 +227,13 @@ server.tool(
 
 server.tool(
     'browser_scroll',
-    'Scroll the page or a specific element',
+    'Scroll the page or a specific element. Horizontal scrolling (left/right) works when a selector is provided — element-scoped scrolls support all four directions.',
     {
-        direction: z.enum(['up', 'down', 'left', 'right']).optional().describe('Scroll direction (default: down)'),
+        direction: z.enum(['up', 'down', 'left', 'right']).optional().describe('Scroll direction (default: down). Horizontal scrolling requires a selector.'),
         amount: z.number().optional().describe('Scroll amount in pixels (default: 300)'),
-        selector: z.string().optional().describe('Element to scroll (default: page)'),
+        selector: z.string().optional().describe('@ref ID or CSS selector of element to scroll (default: page). Required for horizontal scrolling.'),
         sessionId: z.string().optional().describe('Session ID'),
+        clientId: z.string().optional().describe('Client ID for parallel isolation'),
     },
     async ({ direction, amount, selector, sessionId }) => {
         await withPage(sessionId, async (ps, page) => ps.scroll(page, { direction, amount, selector }));
@@ -314,11 +321,12 @@ server.tool(
 
 server.tool(
     'browser_find_by_role',
-    'Find elements by ARIA role (requires snapshot first)',
+    'Find elements by ARIA role in the last snapshot. Returns @ref IDs usable with click/fill/type/select. Call browser_snapshot first.',
     {
-        role: z.string().describe('ARIA role (e.g. button, link, textbox)'),
-        name: z.string().optional().describe('Filter by accessible name'),
+        role: z.string().describe('ARIA role (e.g. button, link, textbox, checkbox, combobox)'),
+        name: z.string().optional().describe('Filter by accessible name (partial match)'),
         sessionId: z.string().optional().describe('Session ID'),
+        clientId: z.string().optional().describe('Client ID for parallel isolation'),
     },
     async ({ role, name, sessionId }) => {
         const results = await withPage(sessionId, async (ps, page) => ps.findByRole(page, role, name ? { name } : undefined));
@@ -328,10 +336,11 @@ server.tool(
 
 server.tool(
     'browser_find_by_text',
-    'Find elements by text content (requires snapshot first)',
+    'Find elements by text content in the last snapshot. Returns @ref IDs usable with click/fill/type/select. Call browser_snapshot first.',
     {
-        text: z.string().describe('Text to search for'),
+        text: z.string().describe('Text to search for (partial match)'),
         sessionId: z.string().optional().describe('Session ID'),
+        clientId: z.string().optional().describe('Client ID for parallel isolation'),
     },
     async ({ text, sessionId }) => {
         const results = await withPage(sessionId, async (ps, page) => ps.findByText(page, text));
@@ -339,11 +348,38 @@ server.tool(
     }
 );
 
+// =================== Wait Tool ===================
+
+server.tool(
+    'browser_wait',
+    'Wait for an element to appear, or wait a fixed number of milliseconds. Use @ref IDs from snapshot or CSS selectors for element waits.',
+    {
+        selector: z.string().optional().describe('@ref ID (e.g. @e5) or CSS selector to wait for. Mutually exclusive with ms.'),
+        ms: z.number().optional().describe('Milliseconds to wait (e.g. 500). Mutually exclusive with selector.'),
+        timeout: z.number().optional().describe('Max wait time in ms for element selector (default: 30000)'),
+        sessionId: z.string().optional().describe('Session ID'),
+        clientId: z.string().optional().describe('Client ID for parallel isolation'),
+    },
+    async ({ selector, ms, timeout, sessionId }) => {
+        if (ms !== undefined) {
+            await new Promise(resolve => setTimeout(resolve, ms));
+            return { content: [{ type: 'text', text: JSON.stringify({ waited: ms }) }] };
+        }
+        if (!selector) {
+            return { content: [{ type: 'text', text: JSON.stringify({ error: 'Provide selector or ms' }) }] };
+        }
+        await withPage(sessionId, async (ps, page) => {
+            await page.waitForSelector(selector, { timeout: timeout || 30000 });
+        });
+        return { content: [{ type: 'text', text: JSON.stringify({ found: selector }) }] };
+    }
+);
+
 // =================== Evaluate Tool ===================
 
 server.tool(
     'browser_evaluate',
-    'Execute JavaScript in the page context',
+    'Execute JavaScript in the page context. BLOCKED by default — requires allowUnsafe: true in server config. Security rationale: arbitrary JS execution can exfiltrate data, bypass auth, or corrupt page state. Only enable in trusted, sandboxed environments.',
     {
         script: z.string().describe('JavaScript code to execute'),
         sessionId: z.string().optional().describe('Session ID'),

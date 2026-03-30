@@ -262,6 +262,158 @@ await page.goto('http://localhost:3000');
 
 ---
 
+## Page Service (AI Agent Browser Interaction)
+
+The Page Service provides AI agents with structured, accessible browser control — no screenshots or coordinates required. It exposes an accessibility-tree-based snapshot system with stable `@ref` element IDs so agents can click, fill, and query page content reliably across sessions.
+
+### Snapshot & Refs
+
+```bash
+# Capture the accessibility tree with @ref element IDs
+testmu-browser-cloud page snapshot --session $SESSION_ID
+
+# Show only what changed since the last snapshot (cross-process, persisted)
+testmu-browser-cloud page snapshot --diff --session $SESSION_ID
+
+# Token-efficient compact text output
+testmu-browser-cloud page snapshot --compact --session $SESSION_ID
+```
+
+Snapshot output assigns each interactive element a stable `@ref` ID (e.g. `@e12`). Use these refs in subsequent commands instead of coordinates.
+
+### Interaction Commands
+
+```bash
+# Click an element by @ref or CSS selector
+testmu-browser-cloud page click @e12 --session $SESSION_ID
+testmu-browser-cloud page click "#submit-btn" --session $SESSION_ID
+
+# Fill an input field
+testmu-browser-cloud page fill @e5 "user@example.com" --session $SESSION_ID
+
+# Type text (character by character, for inputs that need events)
+testmu-browser-cloud page type @e5 "hello world" --session $SESSION_ID
+
+# Select a dropdown option
+testmu-browser-cloud page select @e8 "option-value" --session $SESSION_ID
+
+# Check or uncheck a checkbox
+testmu-browser-cloud page check @e3 --session $SESSION_ID
+
+# Hover over an element
+testmu-browser-cloud page hover @e7 --session $SESSION_ID
+
+# Press a key (supports keyboard shortcuts)
+testmu-browser-cloud page press "Enter" --session $SESSION_ID
+testmu-browser-cloud page press "Control+A" --session $SESSION_ID
+
+# Scroll the page or an element
+testmu-browser-cloud page scroll down 300 --session $SESSION_ID
+testmu-browser-cloud page scroll @e4 right 200 --session $SESSION_ID
+
+# Wait for an element to appear or a fixed delay
+testmu-browser-cloud page wait "#modal" --session $SESSION_ID
+testmu-browser-cloud page wait 2000 --session $SESSION_ID
+testmu-browser-cloud page wait @e6 --session $SESSION_ID
+```
+
+### Query Commands
+
+```bash
+# Get inner text, HTML, value, attribute, current URL, or page title
+testmu-browser-cloud page get text @e10 --session $SESSION_ID
+testmu-browser-cloud page get html @e10 --session $SESSION_ID
+testmu-browser-cloud page get value @e5 --session $SESSION_ID
+testmu-browser-cloud page get attr @e10 href --session $SESSION_ID
+testmu-browser-cloud page get url --session $SESSION_ID
+testmu-browser-cloud page get title --session $SESSION_ID
+```
+
+### State Check Commands
+
+```bash
+testmu-browser-cloud page is visible @e4 --session $SESSION_ID
+testmu-browser-cloud page is enabled @e8 --session $SESSION_ID
+testmu-browser-cloud page is checked @e3 --session $SESSION_ID
+```
+
+### Find Commands
+
+```bash
+# Find elements by ARIA role
+testmu-browser-cloud page find role button --session $SESSION_ID
+
+# Find elements by visible text (partial match)
+testmu-browser-cloud page find text "Sign in" --session $SESSION_ID
+
+# Find by ARIA label
+testmu-browser-cloud page find label "Email address" --session $SESSION_ID
+```
+
+### JavaScript Evaluation
+
+JavaScript evaluation is **blocked by default** to prevent prompt injection and unintended side effects. Pass `--allow-unsafe` explicitly when evaluation is required.
+
+```bash
+# Blocked by default — this will error
+testmu-browser-cloud page eval "document.title" --session $SESSION_ID
+
+# Explicitly opt in
+testmu-browser-cloud page eval "document.title" --allow-unsafe --session $SESSION_ID
+```
+
+### SDK Usage
+
+```typescript
+import { Browser } from '@testmuai/browser-cloud';
+
+const client = new Browser();
+const session = await client.sessions.create({ adapter: 'playwright', ... });
+
+// Capture snapshot
+const snapshot = await client.page.snapshot(session.id);
+
+// Interact using @ref IDs from the snapshot
+await client.page.click(session.id, '@e12');
+await client.page.fill(session.id, '@e5', 'user@example.com');
+await client.page.press(session.id, 'Enter');
+
+// Query
+const title = await client.page.get(session.id, 'title');
+const url   = await client.page.get(session.id, 'url');
+
+// Evaluate (opt-in only)
+const result = await client.page.evaluate(session.id, 'document.title', { allowUnsafe: true });
+```
+
+### Parallel Session Isolation
+
+When multiple AI agents run against the same cloud session, refs and snapshots must be isolated per agent. Pass `--client-id` on every page command:
+
+```bash
+testmu-browser-cloud page snapshot --session $SESSION_ID --client-id agent-1
+testmu-browser-cloud page click @e12 --session $SESSION_ID --client-id agent-1
+```
+
+Each client gets its own isolated ref map (`refs.{clientId}.json`), snapshot diff base (`prev-snapshot.{clientId}.json`), and page state (`page-state.{clientId}.json`). When `--client-id` is omitted, a per-process default (`cli-{pid}`) is used automatically.
+
+### Session Reconnection
+
+The page service persists the last navigated URL to `page-state.json` so that CLI-based agents can reconnect across process boundaries without losing their place:
+
+```bash
+# First process navigates somewhere
+testmu-browser-cloud page snapshot --session $SESSION_ID   # navigates automatically if needed
+
+# Later process reconnects — auto-navigates to the last known URL
+testmu-browser-cloud page snapshot --session $SESSION_ID
+
+# Disable auto-navigation if you want a clean slate
+testmu-browser-cloud page snapshot --session $SESSION_ID --no-auto-navigate
+```
+
+---
+
 ## Cross-Browser Testing
 
 Test across platforms and browsers on LambdaTest cloud.
