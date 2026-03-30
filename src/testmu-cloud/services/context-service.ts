@@ -1,5 +1,6 @@
 
 import { SessionContext, Cookie } from '../types.js';
+import { detectFramework } from '../utils/framework-detect';
 
 /**
  * ContextService - Browser State Management (Framework Agnostic)
@@ -18,17 +19,6 @@ import { SessionContext, Cookie } from '../types.js';
  * ```
  */
 export class ContextService {
-
-    /**
-     * Detect if page is Puppeteer or Playwright
-     */
-    private detectFramework(page: any): 'puppeteer' | 'playwright' {
-        // Playwright pages have page.context() method
-        if (typeof page.context === 'function') {
-            return 'playwright';
-        }
-        return 'puppeteer';
-    }
 
     // ================== Get Operations ==================
 
@@ -65,7 +55,7 @@ export class ContextService {
      */
     async getCookies(page: any): Promise<Cookie[]> {
         try {
-            const framework = this.detectFramework(page);
+            const framework = detectFramework(page);
 
             if (framework === 'playwright') {
                 // Playwright: cookies are on the browser context
@@ -168,7 +158,7 @@ export class ContextService {
         if (!cookies || cookies.length === 0) return;
 
         try {
-            const framework = this.detectFramework(page);
+            const framework = detectFramework(page);
 
             if (framework === 'playwright') {
                 // Playwright: cookies are set on the browser context
@@ -250,7 +240,7 @@ export class ContextService {
      */
     async clearCookies(page: any): Promise<void> {
         try {
-            const framework = this.detectFramework(page);
+            const framework = detectFramework(page);
 
             if (framework === 'playwright') {
                 const context = page.context();
