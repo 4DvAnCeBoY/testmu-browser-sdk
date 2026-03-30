@@ -65,7 +65,7 @@ export class QuickActionsService {
         const page = await browser.newPage();
 
         return {
-            page: page as Page,
+            page: page as unknown as Page,
             cleanup: async () => {
                 await browser.close();
             }

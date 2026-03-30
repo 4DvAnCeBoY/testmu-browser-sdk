@@ -44,6 +44,14 @@ export async function executeSessionCreate(options: SessionCreateOptions): Promi
   const config = new ConfigManager();
   const creds = config.getCredentials();
 
+  // Fail fast on placeholder credentials
+  if (!options.local && config.hasPlaceholderCredentials()) {
+    throw new Error(
+      'Detected placeholder credentials. Run "testmu-browser-cloud setup" with real LambdaTest credentials. ' +
+      'Get yours at https://www.testmuai.com'
+    );
+  }
+
   let sessionContext: any = undefined;
   if (options.sessionContext) {
     sessionContext = await fs.readJson(options.sessionContext);

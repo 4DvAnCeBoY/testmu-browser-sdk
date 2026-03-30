@@ -3,8 +3,8 @@ import { Page } from 'puppeteer-core';
 import {
     ComputerActionParams,
     ComputerActionResponse,
-    ComputerActionType
 } from '../types.js';
+import { detectFramework } from '../utils/framework-detect.js';
 
 /**
  * ComputerService - AI Agent Mouse/Keyboard Control
@@ -62,7 +62,7 @@ export class ComputerService {
                         await page.mouse.move(params.coordinate[0], params.coordinate[1]);
                     }
 
-                    await page.mouse.wheel({ deltaX, deltaY });
+                    await this.scroll(page, deltaX, deltaY);
                     output = `Scrolled by (${deltaX}, ${deltaY})`;
                     break;
                 }
@@ -83,11 +83,7 @@ export class ComputerService {
                     break;
 
                 case 'screenshot': {
-                    const screenshot = await page.screenshot({
-                        encoding: 'base64',
-                        fullPage: false
-                    });
-                    base64_image = screenshot as string;
+                    base64_image = await this.captureScreenshot(page, false);
                     output = 'Screenshot captured';
                     break;
                 }
@@ -101,11 +97,7 @@ export class ComputerService {
 
             // Take screenshot if requested with the action
             if (params.screenshot && params.action !== 'screenshot') {
-                const screenshot = await page.screenshot({
-                    encoding: 'base64',
-                    fullPage: false
-                });
-                base64_image = screenshot as string;
+                base64_image = await this.captureScreenshot(page, false);
             }
 
             return {
@@ -123,14 +115,37 @@ export class ComputerService {
     }
 
     /**
+     * Capture screenshot with CDP fallback for cloud Playwright sessions.
+     * Remote grids may return blank PNGs from page.screenshot(); CDP is more reliable.
+     */
+    private async captureScreenshot(page: any, fullPage: boolean): Promise<string> {
+        const framework = detectFramework(page);
+        if (framework === 'playwright') {
+            // Try CDP Page.captureScreenshot first (more reliable on remote grids)
+            try {
+                const cdpSession = await page.context().newCDPSession(page);
+                const result = await cdpSession.send('Page.captureScreenshot', {
+                    format: 'png',
+                    captureBeyondViewport: fullPage,
+                });
+                await cdpSession.detach();
+                if (result.data) return result.data;
+            } catch {
+                // CDP not available — fall through to standard API
+            }
+            const buf = await page.screenshot({ fullPage });
+            return buf.toString('base64');
+        }
+        // Puppeteer
+        const screenshot = await page.screenshot({ encoding: 'base64', fullPage });
+        return screenshot as string;
+    }
+
+    /**
      * Take a screenshot and return as base64
      */
     async screenshot(page: Page, fullPage: boolean = false): Promise<string> {
-        const screenshot = await page.screenshot({
-            encoding: 'base64',
-            fullPage
-        });
-        return screenshot as string;
+        return this.captureScreenshot(page, fullPage);
     }
 
     /**
@@ -162,9 +177,14 @@ export class ComputerService {
     }
 
     /**
-     * Scroll the page
+     * Scroll the page — uses evaluate for broad version compatibility
      */
     async scroll(page: Page, deltaX: number, deltaY: number): Promise<void> {
-        await page.mouse.wheel({ deltaX, deltaY });
+        const framework = detectFramework(page);
+        if (framework === 'playwright') {
+            await (page as any).mouse.wheel(deltaX, deltaY);
+        } else {
+            await (page as any).evaluate((dx: number, dy: number) => window.scrollBy(dx, dy), deltaX, deltaY);
+        }
     }
 }

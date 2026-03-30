@@ -55,4 +55,28 @@ export class ConfigManager {
     const creds = this.getCredentials();
     return !!(creds.username && creds.accessKey);
   }
+
+  /**
+   * Detect known placeholder/doc-example credentials that won't authenticate.
+   */
+  hasPlaceholderCredentials(): boolean {
+    const creds = this.getCredentials();
+    return arePlaceholderCredentials(creds.username, creds.accessKey);
+  }
+}
+
+const PLACEHOLDER_PATTERNS = [
+  /^your[_-]?(username|user|lt[_-]?username)?$/i,
+  /^your[_-]?(access[_-]?key|key|lt[_-]?access[_-]?key)?$/i,
+  /^generic[_-]?user$/i,
+  /^YOUR_LT_/i,
+  /^placeholder/i,
+  /^test[_-]?user$/i,
+  /^xxx+$/i,
+];
+
+export function arePlaceholderCredentials(username?: string, accessKey?: string): boolean {
+  if (!username || !accessKey) return false;
+  return PLACEHOLDER_PATTERNS.some(p => p.test(username)) ||
+         PLACEHOLDER_PATTERNS.some(p => p.test(accessKey));
 }
