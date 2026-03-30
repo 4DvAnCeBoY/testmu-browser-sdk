@@ -59,7 +59,7 @@ const REF_ELIGIBLE_ROLES = new Set([
 ]);
 
 function shouldAssignRef(role: string): boolean {
-    return REF_ELIGIBLE_ROLES.has(role);
+    return REF_ELIGIBLE_ROLES.has(role.toLowerCase());
 }
 
 export class SnapshotService {
@@ -82,7 +82,7 @@ export class SnapshotService {
         // Phase A: Get accessibility tree from browser engine
         let rawTree: any;
         try {
-            rawTree = await page.accessibility.snapshot({ interestingOnly: true });
+            rawTree = await page.accessibility.snapshot({ interestingOnly: false });
         } catch {
             rawTree = { role: 'WebArea', name: title, children: [] };
         }
@@ -279,7 +279,11 @@ export class SnapshotService {
         const count = counters.get(baseKey) || 0;
         counters.set(baseKey, count + 1);
         const key = `${baseKey}:${count}`;
-        if (node.ref) map.set(key, node);
+        // Index nodes with @ref OR non-empty name (excluding root WebArea) so diffs work even with refCount=0
+        const isRoot = node.role.toLowerCase() === 'webarea';
+        if (node.ref || (node.name && !isRoot)) {
+            map.set(key, node);
+        }
         if (node.children) {
             for (const child of node.children) this.collectRefs(child, map, counters);
         }

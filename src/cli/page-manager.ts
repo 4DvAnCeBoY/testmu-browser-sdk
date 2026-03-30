@@ -14,8 +14,8 @@ function sanitizeClientId(id: string): string {
 
 const SESSIONS_DIR = path.join(os.homedir(), '.testmuai', 'sessions');
 
-// Unique client ID for this process — scopes ref and snapshot files to avoid cross-agent interference
-export const DEFAULT_CLIENT_ID = `cli-${process.pid}`;
+// Stable client ID for CLI — scopes ref and snapshot files to avoid cross-agent interference
+export const DEFAULT_CLIENT_ID = 'cli';
 
 // Singleton instances to preserve state across CLI calls within one process
 let sessionStoreInstance: DiskSessionStore | null = null;
@@ -133,7 +133,10 @@ export async function getSessionPage(sessionId: string, options?: GetSessionPage
 
     if (adapter === 'playwright') {
         const { chromium } = await import('playwright-core');
-        const browser = await chromium.connectOverCDP(session.websocketUrl);
+        const isLocal = (session as any).config?.local === true;
+        const browser = isLocal
+            ? await chromium.connectOverCDP(session.websocketUrl)
+            : await chromium.connect(session.websocketUrl);
         const contexts = browser.contexts();
         const context = contexts[0] || await browser.newContext();
         const pages = context.pages();

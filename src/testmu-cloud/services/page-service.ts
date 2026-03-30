@@ -354,7 +354,7 @@ export class PageService {
         if (!stored) return [];
         const results: { ref: string, name: string }[] = [];
         for (const [ref, mapping] of stored.refs) {
-            if (mapping.role === role) {
+            if (mapping.role.toLowerCase() === role.toLowerCase()) {
                 if (options?.name && !mapping.name.includes(options.name)) continue;
                 results.push({ ref, name: mapping.name });
             }

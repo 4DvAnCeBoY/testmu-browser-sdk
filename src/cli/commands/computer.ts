@@ -2,6 +2,7 @@ import { Browser } from '../../testmu-cloud/index';
 import { Output } from '../output';
 import { ConfigManager } from '../config';
 import { ComputerActionType } from '../../testmu-cloud/types';
+import { getSessionPage, DEFAULT_CLIENT_ID } from '../page-manager';
 import fs from 'fs-extra';
 
 async function executeComputerAction(
@@ -22,14 +23,20 @@ async function executeComputerAction(
   if (creds.accessKey) process.env.LT_ACCESS_KEY = creds.accessKey;
 
   const browser = new Browser();
+  const { page, cleanup } = await getSessionPage(options.session, { clientId: DEFAULT_CLIENT_ID });
 
-  const result = await browser.sessions.computer(options.session, null, {
-    action,
-    coordinate: options.x && options.y ? [parseInt(options.x, 10), parseInt(options.y, 10)] : undefined,
-    text: options.text,
-    deltaX: options.deltaX ? parseInt(options.deltaX, 10) : undefined,
-    deltaY: options.deltaY ? parseInt(options.deltaY, 10) : undefined,
-  });
+  let result: any;
+  try {
+    result = await browser.sessions.computer(options.session, page, {
+      action,
+      coordinate: options.x && options.y ? [parseInt(options.x, 10), parseInt(options.y, 10)] : undefined,
+      text: options.text,
+      deltaX: options.deltaX ? parseInt(options.deltaX, 10) : undefined,
+      deltaY: options.deltaY ? parseInt(options.deltaY, 10) : undefined,
+    });
+  } finally {
+    await cleanup();
+  }
 
   if (result.error) {
     Output.error(result.error);

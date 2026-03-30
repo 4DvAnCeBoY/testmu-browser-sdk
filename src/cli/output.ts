@@ -1,3 +1,10 @@
+process.stdout.on('error', (err: any) => {
+    if (err.code === 'EPIPE') process.exit(0);
+});
+process.stderr.on('error', (err: any) => {
+    if (err.code === 'EPIPE') process.exit(0);
+});
+
 export class Output {
   private static pretty = false;
 

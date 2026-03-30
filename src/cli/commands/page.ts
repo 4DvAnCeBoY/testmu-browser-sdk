@@ -73,22 +73,31 @@ export function registerPageCommand(program: Command): void {
         });
 
     // =================== Navigation ===================
+    async function navigateAction(url: string, options: any): Promise<void> {
+        try {
+            await withSession(options, async (ps, bp) => {
+                const result = await ps.navigate(bp, url);
+                const sessionId = await resolveSessionId(options.session);
+                const clientId: string | undefined = options.clientId ?? DEFAULT_CLIENT_ID;
+                await savePageState(sessionId, result.url, clientId);
+                Output.success(result);
+            });
+        } catch (err) { Output.error(err instanceof Error ? err.message : String(err)); process.exit(1); }
+    }
+
     page
         .command('navigate <url>')
         .description('Navigate to URL')
         .option('--session <id>', 'Session ID')
         .option('--client-id <id>', 'Client ID for session isolation (default: auto-generated from PID)')
-        .action(async (url: string, options: any) => {
-            try {
-                await withSession(options, async (ps, bp) => {
-                    const result = await ps.navigate(bp, url);
-                    const sessionId = await resolveSessionId(options.session);
-                    const clientId: string | undefined = options.clientId ?? DEFAULT_CLIENT_ID;
-                    await savePageState(sessionId, result.url, clientId);
-                    Output.success(result);
-                });
-            } catch (err) { Output.error(err instanceof Error ? err.message : String(err)); process.exit(1); }
-        });
+        .action(navigateAction);
+
+    page
+        .command('goto <url>')
+        .description('Navigate to URL (alias for navigate)')
+        .option('--session <id>', 'Session ID')
+        .option('--client-id <id>', 'Client ID for session isolation (default: auto-generated from PID)')
+        .action(navigateAction);
 
     page.command('back').description('Navigate back').option('--session <id>', 'Session ID')
         .option('--client-id <id>', 'Client ID for session isolation (default: auto-generated from PID)')
