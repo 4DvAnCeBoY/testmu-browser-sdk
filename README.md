@@ -16,17 +16,39 @@ Works as a **Claude Code plugin**, **CLI tool**, and **Node.js SDK**.
 Install the plugin to give Claude Code browser automation superpowers:
 
 ```bash
-# Add the marketplace
-claude plugin marketplace add 4DvAnCeBoY/testmu-browser-sdk
+# Install globally
+npm install -g @testmuai/browser-cloud
 
-# Install the plugin
-claude plugin install browser-cloud
+# Or install from local source
+cd /path/to/browser-cloud && npm link
+
+# Configure credentials
+testmu-browser-cloud setup
 ```
 
-On first session, you'll be prompted to configure credentials:
+### MCP Server (for Claude Code / AI agents)
+
+Add the MCP server to your Claude Code config (`~/.claude/settings.json`):
+
+```json
+{
+  "mcpServers": {
+    "browser-cloud": {
+      "command": "testmu-browser-cloud-mcp",
+      "args": []
+    }
+  }
+}
+```
+
+This exposes 30+ browser tools (snapshot, navigate, click, fill, evaluate, etc.) directly to Claude Code.
+
+### Skill-based Usage
+
+Copy the skill to your Claude Code skills directory:
 
 ```bash
-testmu-browser-cloud setup
+cp -r skills/browser-cloud ~/.claude/skills/browser-cloud
 ```
 
 Once installed, Claude Code automatically uses the plugin when you ask it to scrape websites, take screenshots, test URLs, or run browser automation scripts on the cloud.
@@ -40,7 +62,13 @@ Use `testmu-browser-cloud` directly from the terminal. All commands output JSON.
 ### Setup
 
 ```bash
+# From npm (when published)
 npm install -g @testmuai/browser-cloud
+
+# From source
+git clone <repo-url> && cd browser-cloud && npm install && npm run build && npm link
+
+# Configure credentials
 testmu-browser-cloud setup
 ```
 

@@ -123,6 +123,64 @@ testmu-browser-cloud tunnel stop
 testmu-browser-cloud tunnel stop --name <name>
 ```
 
+## Page Commands
+
+```bash
+# Navigate
+testmu-browser-cloud page navigate <url> --session <id>
+testmu-browser-cloud page navigate <url> --session <id> --wait-until load|domcontentloaded|networkidle
+testmu-browser-cloud page navigate <url> --session <id> --client-id <id>
+testmu-browser-cloud page navigate <url> --session <id> --no-auto-navigate
+
+# Snapshot (returns DOM tree with @ref element IDs)
+testmu-browser-cloud page snapshot --session <id>
+testmu-browser-cloud page snapshot --compact --session <id>      # Condensed output
+testmu-browser-cloud page snapshot --diff --session <id>         # Show changes since last snapshot
+
+# Click
+testmu-browser-cloud page click <selector> --session <id>        # CSS selector or @ref ID
+testmu-browser-cloud page click "@e5" --session <id>             # Click by @ref
+testmu-browser-cloud page double-click <selector> --session <id>
+testmu-browser-cloud page right-click <selector> --session <id>
+
+# Fill form fields
+testmu-browser-cloud page fill <selector> <value> --session <id>
+testmu-browser-cloud page select <selector> <value> --session <id>  # Select dropdown option
+testmu-browser-cloud page check <selector> --session <id>           # Check a checkbox
+testmu-browser-cloud page uncheck <selector> --session <id>
+
+# Query page state
+testmu-browser-cloud page get text <selector> --session <id>
+testmu-browser-cloud page get url --session <id>
+testmu-browser-cloud page get title --session <id>
+testmu-browser-cloud page get html <selector> --session <id>
+testmu-browser-cloud page is visible <selector> --session <id>
+testmu-browser-cloud page is enabled <selector> --session <id>
+
+# Find elements
+testmu-browser-cloud page find role <role> --session <id>        # e.g. button, link, textbox
+testmu-browser-cloud page find text <text> --session <id>
+testmu-browser-cloud page find selector <css> --session <id>
+
+# Keyboard & focus
+testmu-browser-cloud page press <key> --session <id>             # e.g. Enter, Tab, Escape
+testmu-browser-cloud page focus <selector> --session <id>
+testmu-browser-cloud page blur <selector> --session <id>
+
+# Scroll
+testmu-browser-cloud page scroll <selector> --direction up|down --amount <px> --session <id>
+testmu-browser-cloud page scroll-to <selector> --session <id>
+
+# JavaScript evaluation (disabled by default)
+testmu-browser-cloud page eval "<expression>" --allow-unsafe --session <id>
+
+# Parallel agent isolation
+testmu-browser-cloud page <subcommand> --client-id <id> --session <id>
+
+# Skip auto-reconnection navigation
+testmu-browser-cloud page <subcommand> --no-auto-navigate --session <id>
+```
+
 ## Events & Live Details
 
 ```bash
