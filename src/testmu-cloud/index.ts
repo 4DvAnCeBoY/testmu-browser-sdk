@@ -37,6 +37,7 @@ import { EventsService } from './services/events-service.js';
 // Page Tools (agent-browser parity)
 import { PageService } from './services/page-service.js';
 import { SnapshotService } from './services/snapshot-service.js';
+import { NetworkService } from './services/network-service.js';
 import { InMemoryRefStore } from './stores/memory-ref-store.js';
 
 /**
@@ -89,6 +90,7 @@ export class Browser {
     // Page Tools (agent-browser parity)
     public page: PageService;
     public snapshotService: SnapshotService;
+    public network: NetworkService;
 
     constructor() {
         this.sessionManager = new SessionManager();
@@ -116,6 +118,7 @@ export class Browser {
         const refStore = new InMemoryRefStore();
         this.snapshotService = new SnapshotService(refStore);
         this.page = new PageService(this.snapshotService, refStore);
+        this.network = new NetworkService();
 
         // Pass services to SessionManager for automatic handling
         this.sessionManager.setTunnelService(this.tunnel);
@@ -271,6 +274,7 @@ export { EventsService } from './services/events-service.js';
 
 // Page Tools
 export { PageService } from './services/page-service.js';
+export { NetworkService } from './services/network-service.js';
 export { SnapshotService, SnapshotOptions, SnapshotNode, SnapshotResult } from './services/snapshot-service.js';
 export { detectFramework } from './utils/framework-detect.js';
 

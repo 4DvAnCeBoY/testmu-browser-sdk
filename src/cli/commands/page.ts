@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import { Output } from '../output';
 import { getSessionPage, createPageService, resolveSessionId } from '../page-manager';
+import { NetworkService } from '../../testmu-cloud/services/network-service';
 
 async function withSession(options: any, fn: (pageService: any, browserPage: any) => Promise<any>) {
     const sessionId = await resolveSessionId(options.session);
@@ -244,6 +245,59 @@ export function registerPageCommand(program: Command): void {
         .action(async (script: string, options: any) => {
             try {
                 await withSession(options, async (ps, bp) => Output.success({ result: await ps.evaluate(bp, script) }));
+            } catch (err) { Output.error(err instanceof Error ? err.message : String(err)); process.exit(1); }
+        });
+
+    // =================== Network ===================
+    const network = page.command('network').description('Network request control');
+    const networkService = new NetworkService();
+
+    network.command('block <pattern>').description('Block requests matching URL pattern').option('--session <id>', 'Session ID')
+        .action(async (pattern: string, options: any) => {
+            try {
+                const sessionId = await resolveSessionId(options.session);
+                const { page: bp, cleanup } = await getSessionPage(sessionId);
+                try {
+                    await networkService.block(bp, sessionId, pattern);
+                    Output.success({ blocked: pattern });
+                } finally { await cleanup(); }
+            } catch (err) { Output.error(err instanceof Error ? err.message : String(err)); process.exit(1); }
+        });
+
+    network.command('mock <url> <responseBody>').description('Mock URL with custom response').option('--session <id>', 'Session ID').option('--status <code>', 'HTTP status code', '200')
+        .action(async (url: string, responseBody: string, options: any) => {
+            try {
+                const sessionId = await resolveSessionId(options.session);
+                const { page: bp, cleanup } = await getSessionPage(sessionId);
+                try {
+                    await networkService.mock(bp, sessionId, url, { status: parseInt(options.status), body: responseBody });
+                    Output.success({ mocked: url, status: parseInt(options.status) });
+                } finally { await cleanup(); }
+            } catch (err) { Output.error(err instanceof Error ? err.message : String(err)); process.exit(1); }
+        });
+
+    network.command('headers <json>').description('Set extra HTTP headers (JSON string)').option('--session <id>', 'Session ID')
+        .action(async (json: string, options: any) => {
+            try {
+                const sessionId = await resolveSessionId(options.session);
+                const { page: bp, cleanup } = await getSessionPage(sessionId);
+                try {
+                    const headers = JSON.parse(json);
+                    await networkService.setHeaders(bp, headers);
+                    Output.success({ headers: Object.keys(headers) });
+                } finally { await cleanup(); }
+            } catch (err) { Output.error(err instanceof Error ? err.message : String(err)); process.exit(1); }
+        });
+
+    network.command('logs').description('Get network request logs').option('--session <id>', 'Session ID').option('--method <method>', 'Filter by HTTP method').option('--url <pattern>', 'Filter by URL pattern')
+        .action(async (options: any) => {
+            try {
+                const sessionId = await resolveSessionId(options.session);
+                const logs = networkService.getLogs(sessionId, {
+                    method: options.method,
+                    urlPattern: options.url,
+                });
+                Output.success(logs);
             } catch (err) { Output.error(err instanceof Error ? err.message : String(err)); process.exit(1); }
         });
 }
