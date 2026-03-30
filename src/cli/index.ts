@@ -17,6 +17,7 @@ import { registerCredentialCommand } from './commands/credential';
 import { registerCaptchaCommand } from './commands/captcha';
 import { registerTunnelCommand } from './commands/tunnel';
 import { registerEventsCommand } from './commands/events';
+import { registerPageCommand } from './commands/page';
 
 const program = new Command();
 
@@ -69,5 +70,8 @@ registerCredentialCommand(program);
 registerCaptchaCommand(program);
 registerTunnelCommand(program);
 registerEventsCommand(program);
+
+// Page Tools (agent-browser parity)
+registerPageCommand(program);
 
 program.parse(process.argv);

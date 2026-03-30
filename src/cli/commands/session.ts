@@ -3,6 +3,7 @@ import { Output } from '../output';
 import { ConfigManager } from '../config';
 import { BrowserAdapter, Session, ReleaseResponse } from '../../testmu-cloud/types';
 import fs from 'fs-extra';
+import { getSessionStore } from '../page-manager';
 
 let browserInstance: Browser | null = null;
 
@@ -35,6 +36,7 @@ interface SessionCreateOptions {
   deviceName?: string;
   build?: string;
   name?: string;
+  local?: boolean;
 }
 
 export async function executeSessionCreate(options: SessionCreateOptions): Promise<Session> {
@@ -63,6 +65,7 @@ export async function executeSessionCreate(options: SessionCreateOptions): Promi
 
   const session = await browser.sessions.create({
     adapter: (options.adapter as BrowserAdapter) || 'puppeteer',
+    local: options.local || false,
     stealthConfig: options.stealth ? { humanizeInteractions: true, randomizeUserAgent: true } : undefined,
     proxy: options.proxy,
     tunnel: options.tunnel,
@@ -75,6 +78,11 @@ export async function executeSessionCreate(options: SessionCreateOptions): Promi
     credentials: options.credentials ? {} : undefined,
     lambdatestOptions: Object.keys(lambdatestOptions).length > 0 ? lambdatestOptions : undefined,
   });
+
+  // Persist session to disk for cross-process CLI usage (page commands)
+  const store = getSessionStore();
+  await store.save(session);
+
   return session;
 }
 
@@ -90,7 +98,11 @@ export function executeSessionInfo(id: string): Session | undefined {
 
 export async function executeSessionRelease(id: string): Promise<ReleaseResponse> {
   const browser = getBrowser();
-  return browser.sessions.release(id);
+  const result = await browser.sessions.release(id);
+  // Clean up disk persistence
+  const store = getSessionStore();
+  await store.delete(id);
+  return result;
 }
 
 export async function executeSessionReleaseAll(): Promise<ReleaseResponse> {
@@ -121,6 +133,7 @@ export function registerSessionCommand(program: any): void {
     .option('--device-name <name>', 'Device name, e.g. "Samsung Galaxy S24"')
     .option('--build <name>', 'Build name for LambdaTest dashboard')
     .option('--name <name>', 'Session name for LambdaTest dashboard')
+    .option('--local', 'Launch local Chrome instead of cloud')
     .action(async (options: SessionCreateOptions) => {
       try {
         const session = await executeSessionCreate(options);
