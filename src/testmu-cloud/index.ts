@@ -34,6 +34,11 @@ import { ComputerService } from './services/computer-service.js';
 import { ContextService } from './services/context-service.js';
 import { EventsService } from './services/events-service.js';
 
+// Page Tools (agent-browser parity)
+import { PageService } from './services/page-service.js';
+import { SnapshotService } from './services/snapshot-service.js';
+import { InMemoryRefStore } from './stores/memory-ref-store.js';
+
 /**
  * 
  * Provides an AI Browser Automation SDK for TestMu AI Browser Cloud.
@@ -81,6 +86,10 @@ export class Browser {
     public context: ContextService;
     public events: EventsService;
 
+    // Page Tools (agent-browser parity)
+    public page: PageService;
+    public snapshotService: SnapshotService;
+
     constructor() {
         this.sessionManager = new SessionManager();
 
@@ -102,6 +111,11 @@ export class Browser {
         this.computer = new ComputerService();
         this.context = new ContextService();
         this.events = new EventsService();
+
+        // Page Tools (agent-browser parity)
+        const refStore = new InMemoryRefStore();
+        this.snapshotService = new SnapshotService(refStore);
+        this.page = new PageService(this.snapshotService, refStore);
 
         // Pass services to SessionManager for automatic handling
         this.sessionManager.setTunnelService(this.tunnel);
@@ -254,3 +268,16 @@ export { TunnelService } from './services/tunnel-service.js';
 export { ComputerService } from './services/computer-service.js';
 export { ContextService } from './services/context-service.js';
 export { EventsService } from './services/events-service.js';
+
+// Page Tools
+export { PageService } from './services/page-service.js';
+export { SnapshotService, SnapshotOptions, SnapshotNode, SnapshotResult } from './services/snapshot-service.js';
+export { detectFramework } from './utils/framework-detect.js';
+
+// Stores
+export { SessionStore } from './stores/session-store.js';
+export { InMemorySessionStore } from './stores/memory-session-store.js';
+export { DiskSessionStore } from './stores/disk-session-store.js';
+export { RefStore, RefMapping } from './stores/ref-store.js';
+export { InMemoryRefStore } from './stores/memory-ref-store.js';
+export { DiskRefStore } from './stores/disk-ref-store.js';
