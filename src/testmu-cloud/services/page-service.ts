@@ -1,4 +1,4 @@
-import { SnapshotService, SnapshotOptions, SnapshotResult } from './snapshot-service';
+import { SnapshotService, SnapshotOptions, SnapshotResult, SnapshotDiff } from './snapshot-service';
 import { RefStore, RefMapping } from '../stores/ref-store';
 import { detectFramework } from '../utils/framework-detect';
 
@@ -27,6 +27,30 @@ export class PageService {
     async snapshot(page: any, options?: SnapshotOptions): Promise<SnapshotResult> {
         const sessionId = this.getSessionId(page);
         return this.snapshotService.capture(page, sessionId, options);
+    }
+
+    async snapshotDiff(page: any, options?: SnapshotOptions): Promise<{ diff: SnapshotDiff, current: SnapshotResult, compactText?: string }> {
+        const sessionId = this.getSessionId(page);
+        const previous = this.snapshotService.getPrevious(sessionId);
+        const current = await this.snapshotService.capture(page, sessionId, options);
+
+        if (!previous) {
+            return {
+                diff: {
+                    urlChanged: false, currentUrl: current.url,
+                    added: [], removed: [], changed: [], unchanged: current.refCount,
+                },
+                current,
+                compactText: options?.compact ? `[${current.title}] ${current.url}\n(first snapshot — no previous to diff against)` : undefined,
+            };
+        }
+
+        const diff = this.snapshotService.diff(previous, current);
+        return {
+            diff,
+            current,
+            compactText: options?.compact ? this.snapshotService.diffToCompactText(diff, current.title) : undefined,
+        };
     }
 
     // =================== Navigation ===================

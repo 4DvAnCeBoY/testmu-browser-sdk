@@ -139,4 +139,121 @@ describe('SnapshotService', () => {
         const refs = result.tree.children!.map(n => n.ref);
         expect(refs).toEqual(['@e1', '@e2', '@e3']);
     });
+
+    describe('diff', () => {
+        it('detects added elements', async () => {
+            const tree1 = { role: 'WebArea', name: 'Test', children: [
+                { role: 'button', name: 'Submit', children: [] },
+            ]};
+            const tree2 = { role: 'WebArea', name: 'Test', children: [
+                { role: 'button', name: 'Submit', children: [] },
+                { role: 'link', name: 'Help', children: [] },
+            ]};
+            const page1 = createMockPage(tree1);
+            const page2 = createMockPage(tree2);
+            const snap1 = await service.capture(page1, 's1');
+            const snap2 = await service.capture(page2, 's1');
+            const diff = service.diff(snap1, snap2);
+
+            expect(diff.added).toHaveLength(1);
+            expect(diff.added[0].name).toBe('Help');
+            expect(diff.removed).toHaveLength(0);
+        });
+
+        it('detects removed elements', async () => {
+            const tree1 = { role: 'WebArea', name: 'Test', children: [
+                { role: 'button', name: 'Submit', children: [] },
+                { role: 'link', name: 'Help', children: [] },
+            ]};
+            const tree2 = { role: 'WebArea', name: 'Test', children: [
+                { role: 'button', name: 'Submit', children: [] },
+            ]};
+            const page1 = createMockPage(tree1);
+            const page2 = createMockPage(tree2);
+            const snap1 = await service.capture(page1, 's1');
+            const snap2 = await service.capture(page2, 's1');
+            const diff = service.diff(snap1, snap2);
+
+            expect(diff.removed).toHaveLength(1);
+            expect(diff.removed[0].name).toBe('Help');
+        });
+
+        it('detects changed values', async () => {
+            const tree1 = { role: 'WebArea', name: 'Test', children: [
+                { role: 'textbox', name: 'Email', value: '', children: [] },
+            ]};
+            const tree2 = { role: 'WebArea', name: 'Test', children: [
+                { role: 'textbox', name: 'Email', value: 'user@test.com', children: [] },
+            ]};
+            const page1 = createMockPage(tree1);
+            const page2 = createMockPage(tree2);
+            const snap1 = await service.capture(page1, 's1');
+            const snap2 = await service.capture(page2, 's1');
+            const diff = service.diff(snap1, snap2);
+
+            expect(diff.changed).toHaveLength(1);
+            expect(diff.changed[0].changes[0].field).toBe('value');
+            expect(diff.changed[0].changes[0].to).toBe('user@test.com');
+        });
+
+        it('detects URL change', async () => {
+            const tree = { role: 'WebArea', name: 'Test', children: [] };
+            const page1 = createMockPage(tree, 'https://example.com/login');
+            const page2 = createMockPage(tree, 'https://example.com/dashboard');
+            const snap1 = await service.capture(page1, 's1');
+            const snap2 = await service.capture(page2, 's1');
+            const diff = service.diff(snap1, snap2);
+
+            expect(diff.urlChanged).toBe(true);
+            expect(diff.previousUrl).toBe('https://example.com/login');
+            expect(diff.currentUrl).toBe('https://example.com/dashboard');
+        });
+
+        it('reports no changes when identical', async () => {
+            const tree = { role: 'WebArea', name: 'Test', children: [
+                { role: 'button', name: 'Submit', children: [] },
+            ]};
+            const page = createMockPage(tree);
+            const snap1 = await service.capture(page, 's1');
+            const snap2 = await service.capture(page, 's1');
+            const diff = service.diff(snap1, snap2);
+
+            expect(diff.added).toHaveLength(0);
+            expect(diff.removed).toHaveLength(0);
+            expect(diff.changed).toHaveLength(0);
+            expect(diff.unchanged).toBe(1);
+        });
+
+        it('generates compact diff text', async () => {
+            const tree1 = { role: 'WebArea', name: 'Test', children: [
+                { role: 'button', name: 'Login', children: [] },
+            ]};
+            const tree2 = { role: 'WebArea', name: 'Dashboard', children: [
+                { role: 'button', name: 'Logout', children: [] },
+            ]};
+            const page1 = createMockPage(tree1, 'https://example.com/login', 'Login');
+            const page2 = createMockPage(tree2, 'https://example.com/dashboard', 'Dashboard');
+            const snap1 = await service.capture(page1, 's1');
+            const snap2 = await service.capture(page2, 's1');
+            const diff = service.diff(snap1, snap2);
+            const text = service.diffToCompactText(diff, 'Dashboard');
+
+            expect(text).toContain('CHANGED: URL');
+            expect(text).toContain('REMOVED:');
+            expect(text).toContain('Login');
+            expect(text).toContain('ADDED:');
+            expect(text).toContain('Logout');
+        });
+    });
+
+    it('stores previous snapshot for diffing', async () => {
+        const tree = { role: 'WebArea', name: 'Test', children: [
+            { role: 'button', name: 'Submit', children: [] },
+        ]};
+        const page = createMockPage(tree);
+        await service.capture(page, 's1');
+        const prev = service.getPrevious('s1');
+        expect(prev).not.toBeNull();
+        expect(prev!.refCount).toBe(1);
+    });
 });

@@ -29,15 +29,25 @@ export function registerPageCommand(program: Command): void {
         .action(async (options: any) => {
             try {
                 await withSession(options, async (pageService, browserPage) => {
-                    const result = await pageService.snapshot(browserPage, {
+                    const snapshotOpts = {
                         compact: options.compact,
                         interactiveOnly: options.interactiveOnly,
                         maxElements: options.maxElements ? parseInt(options.maxElements) : undefined,
-                    });
-                    if (options.compact && result.compactText) {
-                        process.stdout.write(result.compactText + '\n');
+                    };
+                    if (options.diff) {
+                        const { diff, compactText } = await pageService.snapshotDiff(browserPage, snapshotOpts);
+                        if (options.compact && compactText) {
+                            process.stdout.write(compactText + '\n');
+                        } else {
+                            Output.success(diff);
+                        }
                     } else {
-                        Output.success(result);
+                        const result = await pageService.snapshot(browserPage, snapshotOpts);
+                        if (options.compact && result.compactText) {
+                            process.stdout.write(result.compactText + '\n');
+                        } else {
+                            Output.success(result);
+                        }
                     }
                 });
             } catch (err) {

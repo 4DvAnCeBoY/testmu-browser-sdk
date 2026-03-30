@@ -38,6 +38,21 @@ export interface SnapshotResult {
     compactText?: string;
 }
 
+export interface SnapshotDiff {
+    urlChanged: boolean;
+    previousUrl?: string;
+    currentUrl: string;
+    added: { ref?: string, role: string, name: string }[];
+    removed: { ref?: string, role: string, name: string }[];
+    changed: {
+        ref?: string;
+        role: string;
+        name: string;
+        changes: { field: string, from: string, to: string }[];
+    }[];
+    unchanged: number;
+}
+
 const REF_ELIGIBLE_ROLES = new Set([
     'button', 'link', 'textbox', 'checkbox', 'radio', 'combobox', 'listbox',
     'menuitem', 'menuitemcheckbox', 'menuitemradio', 'option', 'searchbox',
@@ -51,6 +66,8 @@ function shouldAssignRef(role: string): boolean {
 }
 
 export class SnapshotService {
+    private previousSnapshots = new Map<string, SnapshotResult>();
+
     constructor(private refStore: RefStore) {}
 
     async capture(page: any, sessionId: string, options: SnapshotOptions = {}): Promise<SnapshotResult> {
@@ -150,7 +167,14 @@ export class SnapshotService {
             snapshotResult.compactText = this.toCompactText(snapshotResult);
         }
 
+        // Store for diffing
+        this.previousSnapshots.set(sessionId, snapshotResult);
+
         return snapshotResult;
+    }
+
+    getPrevious(sessionId: string): SnapshotResult | null {
+        return this.previousSnapshots.get(sessionId) || null;
     }
 
     toCompactText(result: SnapshotResult): string {
@@ -177,5 +201,78 @@ export class SnapshotService {
         }
 
         return lines.join('\n');
+    }
+
+    diff(previous: SnapshotResult, current: SnapshotResult): SnapshotDiff {
+        const prevRefs = this.collectRefs(previous.tree);
+        const currRefs = this.collectRefs(current.tree);
+
+        const added: SnapshotDiff['added'] = [];
+        const removed: SnapshotDiff['removed'] = [];
+        const changed: SnapshotDiff['changed'] = [];
+        let unchanged = 0;
+
+        // Find added and changed
+        for (const [key, curr] of currRefs) {
+            const prev = prevRefs.get(key);
+            if (!prev) {
+                added.push({ ref: curr.ref, role: curr.role, name: curr.name });
+            } else {
+                const changes: { field: string, from: string, to: string }[] = [];
+                if (prev.value !== curr.value) changes.push({ field: 'value', from: prev.value || '', to: curr.value || '' });
+                if (prev.state?.disabled !== curr.state?.disabled) changes.push({ field: 'disabled', from: String(!!prev.state?.disabled), to: String(!!curr.state?.disabled) });
+                if (prev.state?.checked !== curr.state?.checked) changes.push({ field: 'checked', from: String(!!prev.state?.checked), to: String(!!curr.state?.checked) });
+                if (changes.length > 0) {
+                    changed.push({ ref: curr.ref, role: curr.role, name: curr.name, changes });
+                } else {
+                    unchanged++;
+                }
+            }
+        }
+
+        // Find removed
+        for (const [key, prev] of prevRefs) {
+            if (!currRefs.has(key)) {
+                removed.push({ ref: prev.ref, role: prev.role, name: prev.name });
+            }
+        }
+
+        return {
+            urlChanged: previous.url !== current.url,
+            previousUrl: previous.url !== current.url ? previous.url : undefined,
+            currentUrl: current.url,
+            added,
+            removed,
+            changed,
+            unchanged,
+        };
+    }
+
+    diffToCompactText(diff: SnapshotDiff, title: string): string {
+        const lines: string[] = [];
+        lines.push(`[${title}] ${diff.currentUrl}`);
+        if (diff.urlChanged) lines.push(`CHANGED: URL ${diff.previousUrl} → ${diff.currentUrl}`);
+        if (diff.removed.length > 0) lines.push(`REMOVED: ${diff.removed.map(r => `${r.ref || ''} ${r.role} "${r.name}"`).join(', ')}`);
+        if (diff.added.length > 0) lines.push(`ADDED: ${diff.added.map(a => `${a.ref || ''} ${a.role} "${a.name}"`).join(', ')}`);
+        if (diff.changed.length > 0) {
+            for (const c of diff.changed) {
+                const desc = c.changes.map(ch => `${ch.field}: ${ch.from} → ${ch.to}`).join(', ');
+                lines.push(`CHANGED: ${c.ref || ''} ${c.role} "${c.name}" (${desc})`);
+            }
+        }
+        if (diff.removed.length === 0 && diff.added.length === 0 && diff.changed.length === 0) {
+            lines.push(`No changes (${diff.unchanged} elements unchanged)`);
+        }
+        return lines.join('\n');
+    }
+
+    private collectRefs(node: SnapshotNode, map = new Map<string, SnapshotNode>()): Map<string, SnapshotNode> {
+        // Key by role+name for matching across snapshots (refs may change)
+        const key = `${node.role}:${node.name}`;
+        if (node.ref) map.set(key, node);
+        if (node.children) {
+            for (const child of node.children) this.collectRefs(child, map);
+        }
+        return map;
     }
 }
