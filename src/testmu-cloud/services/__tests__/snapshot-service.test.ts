@@ -8,7 +8,7 @@ function createMockPage(accessibilityTree: any, url: string = 'https://example.c
         accessibility: {
             snapshot: async (_opts?: any) => accessibilityTree,
         },
-        evaluate: async (_fn: Function, ..._args: any[]) => {
+        evaluate: async (_fn: (...args: unknown[]) => unknown, ..._args: any[]) => {
             return { xpath: '/html/body/button', css: 'button' };
         },
         mainFrame: () => ({ url: () => url }),

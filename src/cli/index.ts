@@ -18,13 +18,14 @@ import { registerCaptchaCommand } from './commands/captcha';
 import { registerTunnelCommand } from './commands/tunnel';
 import { registerEventsCommand } from './commands/events';
 import { registerPageCommand } from './commands/page';
+import pkg from '../../package.json';
 
 const program = new Command();
 
 program
   .name('testmu-browser-cloud')
   .description('Cloud browser automation for AI agents — powered by TestMu AI')
-  .version(require('../../package.json').version)
+  .version(pkg.version)
   .option('--pretty', 'Pretty-print JSON output')
   .hook('preAction', (thisCommand) => {
     if (thisCommand.opts().pretty) {

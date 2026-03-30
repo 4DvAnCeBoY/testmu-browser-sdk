@@ -22,7 +22,7 @@ describe('setup command', () => {
     (ConfigManager as jest.MockedClass<typeof ConfigManager>).prototype.saveConfig = mockSave;
     (ConfigManager as jest.MockedClass<typeof ConfigManager>).prototype.getConfigPath = mockGetPath;
 
-    const { executeSetup } = require('../commands/setup');
+    const { executeSetup } = await import('../commands/setup');
     await executeSetup({ username: 'test_user', key: 'test_key' });
 
     expect(mockSave).toHaveBeenCalledWith(

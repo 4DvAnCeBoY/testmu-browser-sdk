@@ -11,6 +11,8 @@ export default tseslint.config(
             '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
             '@typescript-eslint/no-empty-function': 'off',
             'no-empty': ['warn', { allowEmptyCatch: true }],
+            // ES2020 target doesn't support Error({ cause }) — original error included in message
+            'preserve-caught-error': 'off',
         },
     },
     {

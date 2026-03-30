@@ -15,7 +15,7 @@ function createMockPuppeteerPage() {
         fill: async (text: string) => { filledData.push({ selector, value: text }); },
         hover: async () => {},
         focus: async () => {},
-        evaluate: async (_fn: Function, ..._args: any[]) => 'mock text',
+        evaluate: async (_fn: (...args: unknown[]) => unknown, ..._args: any[]) => 'mock text',
         isVisible: async () => true,
         isEnabled: async () => true,
         isChecked: async () => false,

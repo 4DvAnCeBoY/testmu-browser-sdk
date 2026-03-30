@@ -53,7 +53,7 @@ export class ComputerService {
                     }
                     break;
 
-                case 'scroll':
+                case 'scroll': {
                     const deltaX = params.deltaX || 0;
                     const deltaY = params.deltaY || 0;
 
@@ -65,6 +65,7 @@ export class ComputerService {
                     await page.mouse.wheel({ deltaX, deltaY });
                     output = `Scrolled by (${deltaX}, ${deltaY})`;
                     break;
+                }
 
                 case 'type':
                     if (params.text) {
@@ -81,7 +82,7 @@ export class ComputerService {
                     }
                     break;
 
-                case 'screenshot':
+                case 'screenshot': {
                     const screenshot = await page.screenshot({
                         encoding: 'base64',
                         fullPage: false
@@ -89,6 +90,7 @@ export class ComputerService {
                     base64_image = screenshot as string;
                     output = 'Screenshot captured';
                     break;
+                }
 
                 default:
                     return {

@@ -175,7 +175,7 @@ export class FileService {
 
         const client = await page.createCDPSession();
 
-        return new Promise<DownloadedFile>(async (resolve, reject) => {
+        return new Promise<DownloadedFile>((resolve, reject) => {
             const timer = setTimeout(() => {
                 cleanup();
                 reject(new Error(`Download timeout after ${timeout}ms`));
@@ -189,7 +189,7 @@ export class FileService {
                 client.send('Fetch.disable').catch(() => {});
             };
 
-            try {
+            const run = async () => {
                 // Enable request interception at response stage
                 await client.send('Fetch.enable', {
                     patterns: [{
@@ -263,11 +263,12 @@ export class FileService {
 
                 // Trigger the download action
                 await triggerAction();
+            };
 
-            } catch (err) {
+            run().catch((err) => {
                 cleanup();
                 reject(err);
-            }
+            });
         });
     }
 

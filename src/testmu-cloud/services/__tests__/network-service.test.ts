@@ -3,7 +3,7 @@ import { NetworkService } from '../network-service';
 function createMockPuppeteerPage() {
     const blockedUrls: string[] = [];
     const extraHeaders: Record<string, string>[] = [];
-    const responseHandlers: Function[] = [];
+    const responseHandlers: ((...args: unknown[]) => void)[] = [];
 
     return {
         createCDPSession: async () => ({
@@ -13,7 +13,7 @@ function createMockPuppeteerPage() {
         }),
         setRequestInterception: async (_val: boolean) => {},
         setExtraHTTPHeaders: async (headers: Record<string, string>) => { extraHeaders.push(headers); },
-        on: (event: string, handler: Function) => {
+        on: (event: string, handler: (...args: unknown[]) => void) => {
             if (event === 'response') responseHandlers.push(handler);
             if (event === 'request') { /* mock request interception */ }
         },

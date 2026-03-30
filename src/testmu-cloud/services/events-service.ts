@@ -104,7 +104,7 @@ export class EventsService {
             this.sessionEvents.set(sessionId, events);
         } catch (error) {
             console.error('Error importing events:', error);
-            throw new Error('Invalid events JSON format');
+            throw new Error(`Invalid events JSON format: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
 }
