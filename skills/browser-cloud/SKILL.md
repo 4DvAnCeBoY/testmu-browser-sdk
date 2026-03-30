@@ -11,6 +11,20 @@ description: >
 
 Run browser automation on TestMu Cloud. Supports Puppeteer, Playwright, and Selenium.
 
+## Three Usage Modes
+
+| Mode | Command | Use When |
+|------|---------|----------|
+| **CLI** | `testmu-browser-cloud <command>` | Terminal, shell scripts, CI/CD |
+| **MCP Server** | `testmu-browser-cloud-mcp` | Claude Code / AI agents (30+ browser tools via MCP) |
+| **SDK** | `import { Browser } from '@testmuai/browser-cloud'` | Node.js scripts, test suites |
+
+To use as MCP server, add to `~/.claude/settings.json`:
+
+```json
+{ "mcpServers": { "browser-cloud": { "command": "testmu-browser-cloud-mcp" } } }
+```
+
 ## First-Time Setup
 
 ```bash

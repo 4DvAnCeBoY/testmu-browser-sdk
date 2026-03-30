@@ -1,11 +1,23 @@
 # Browser Cloud — AI Agent Instructions
 
-This package provides `testmu-browser-cloud`, a CLI for running browser automation on TestMu Cloud.
+Cloud browser automation for AI agents. Supports Puppeteer, Playwright, and Selenium on TestMu/LambdaTest cloud.
+
+## Three Usage Modes
+
+| Mode | How | When |
+|------|-----|------|
+| **CLI** | `testmu-browser-cloud <command>` | Direct terminal usage, shell scripts, CI/CD |
+| **MCP Server** | `testmu-browser-cloud-mcp` | Claude Code, AI agents via MCP protocol (30+ browser tools) |
+| **SDK** | `import { Browser } from '@testmuai/browser-cloud'` | Node.js scripts, Playwright/Puppeteer/Selenium test suites |
 
 ## Installation
 
 ```bash
+# From npm
 npm install -g @testmuai/browser-cloud
+
+# From source
+git clone <repo> && cd browser-cloud && npm install && npm run build && npm link
 ```
 
 ## Setup
@@ -13,6 +25,23 @@ npm install -g @testmuai/browser-cloud
 ```bash
 testmu-browser-cloud setup
 ```
+
+## MCP Server (for Claude Code / AI agents)
+
+Add to `~/.claude/settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "browser-cloud": {
+      "command": "testmu-browser-cloud-mcp",
+      "args": []
+    }
+  }
+}
+```
+
+This exposes 30+ tools: `browser_snapshot`, `browser_navigate`, `browser_click`, `browser_fill`, `browser_evaluate`, `browser_find_by_role`, etc.
 
 ## Usage
 
