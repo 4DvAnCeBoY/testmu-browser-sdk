@@ -14,11 +14,14 @@ const server = new McpServer({
 const networkService = new NetworkService();
 
 // Helper: run a page command with session lifecycle
-async function withPage<T>(sessionId: string | undefined, fn: (ps: any, page: any, sid: string) => Promise<T>): Promise<T> {
+async function withPage<T>(sessionId: string | undefined, fn: (ps: any, page: any, sid: string) => Promise<T>, clientId?: string): Promise<T> {
     const sid = await resolveSessionId(sessionId);
     const { page, cleanup } = await getSessionPage(sid);
     const { pageService } = createPageService();
     pageService.bind(page, sid);
+    if (clientId) {
+        pageService.setClientId(clientId);
+    }
     try {
         return await fn(pageService, page, sid);
     } finally {
@@ -50,10 +53,10 @@ server.tool(
         maxElements: z.number().optional().describe('Max refs to assign (default: 500)'),
         clientId: z.string().optional().describe('Client ID for parallel isolation; scopes @ref state to this client'),
     },
-    async ({ sessionId, compact, maxElements }) => {
+    async ({ sessionId, compact, maxElements, clientId }) => {
         const result = await withPage(sessionId, async (ps, page) => {
             return ps.snapshot(page, { compact: compact || false, maxElements });
-        });
+        }, clientId);
         if (compact && result.compactText) {
             return { content: [{ type: 'text', text: result.compactText }] };
         }
@@ -69,10 +72,10 @@ server.tool(
         compact: z.boolean().optional().describe('Token-efficient text output'),
         clientId: z.string().optional().describe('Client ID for parallel isolation; must match the clientId used in browser_snapshot'),
     },
-    async ({ sessionId, compact }) => {
+    async ({ sessionId, compact, clientId }) => {
         const result = await withPage(sessionId, async (ps, page) => {
             return ps.snapshotDiff(page, { compact: compact || false });
-        });
+        }, clientId);
         if (compact && result.compactText) {
             return { content: [{ type: 'text', text: result.compactText }] };
         }
@@ -135,8 +138,8 @@ server.tool(
         sessionId: z.string().optional().describe('Session ID'),
         clientId: z.string().optional().describe('Client ID for parallel isolation'),
     },
-    async ({ selector, sessionId }) => {
-        await withPage(sessionId, async (ps, page) => ps.click(page, selector));
+    async ({ selector, sessionId, clientId }) => {
+        await withPage(sessionId, async (ps, page) => ps.click(page, selector), clientId);
         return { content: [{ type: 'text', text: JSON.stringify({ clicked: selector }) }] };
     }
 );
@@ -150,8 +153,8 @@ server.tool(
         sessionId: z.string().optional().describe('Session ID'),
         clientId: z.string().optional().describe('Client ID for parallel isolation'),
     },
-    async ({ selector, value, sessionId }) => {
-        await withPage(sessionId, async (ps, page) => ps.fill(page, selector, value));
+    async ({ selector, value, sessionId, clientId }) => {
+        await withPage(sessionId, async (ps, page) => ps.fill(page, selector, value), clientId);
         return { content: [{ type: 'text', text: JSON.stringify({ filled: selector, value }) }] };
     }
 );
@@ -165,8 +168,8 @@ server.tool(
         sessionId: z.string().optional().describe('Session ID'),
         clientId: z.string().optional().describe('Client ID for parallel isolation'),
     },
-    async ({ selector, text, sessionId }) => {
-        await withPage(sessionId, async (ps, page) => ps.type(page, selector, text));
+    async ({ selector, text, sessionId, clientId }) => {
+        await withPage(sessionId, async (ps, page) => ps.type(page, selector, text), clientId);
         return { content: [{ type: 'text', text: JSON.stringify({ typed: selector, text }) }] };
     }
 );
@@ -180,8 +183,8 @@ server.tool(
         sessionId: z.string().optional().describe('Session ID'),
         clientId: z.string().optional().describe('Client ID for parallel isolation'),
     },
-    async ({ selector, values, sessionId }) => {
-        await withPage(sessionId, async (ps, page) => ps.select(page, selector, ...values));
+    async ({ selector, values, sessionId, clientId }) => {
+        await withPage(sessionId, async (ps, page) => ps.select(page, selector, ...values), clientId);
         return { content: [{ type: 'text', text: JSON.stringify({ selected: selector, values }) }] };
     }
 );
@@ -235,8 +238,8 @@ server.tool(
         sessionId: z.string().optional().describe('Session ID'),
         clientId: z.string().optional().describe('Client ID for parallel isolation'),
     },
-    async ({ direction, amount, selector, sessionId }) => {
-        await withPage(sessionId, async (ps, page) => ps.scroll(page, { direction, amount, selector }));
+    async ({ direction, amount, selector, sessionId, clientId }) => {
+        await withPage(sessionId, async (ps, page) => ps.scroll(page, { direction, amount, selector }), clientId);
         return { content: [{ type: 'text', text: JSON.stringify({ scrolled: direction || 'down', amount: amount || 300 }) }] };
     }
 );
@@ -328,8 +331,8 @@ server.tool(
         sessionId: z.string().optional().describe('Session ID'),
         clientId: z.string().optional().describe('Client ID for parallel isolation'),
     },
-    async ({ role, name, sessionId }) => {
-        const results = await withPage(sessionId, async (ps, page) => ps.findByRole(page, role, name ? { name } : undefined));
+    async ({ role, name, sessionId, clientId }) => {
+        const results = await withPage(sessionId, async (ps, page) => ps.findByRole(page, role, name ? { name } : undefined), clientId);
         return { content: [{ type: 'text', text: JSON.stringify(results, null, 2) }] };
     }
 );
@@ -342,8 +345,8 @@ server.tool(
         sessionId: z.string().optional().describe('Session ID'),
         clientId: z.string().optional().describe('Client ID for parallel isolation'),
     },
-    async ({ text, sessionId }) => {
-        const results = await withPage(sessionId, async (ps, page) => ps.findByText(page, text));
+    async ({ text, sessionId, clientId }) => {
+        const results = await withPage(sessionId, async (ps, page) => ps.findByText(page, text), clientId);
         return { content: [{ type: 'text', text: JSON.stringify(results, null, 2) }] };
     }
 );
@@ -360,7 +363,7 @@ server.tool(
         sessionId: z.string().optional().describe('Session ID'),
         clientId: z.string().optional().describe('Client ID for parallel isolation'),
     },
-    async ({ selector, ms, timeout, sessionId }) => {
+    async ({ selector, ms, timeout, sessionId, clientId }) => {
         if (ms !== undefined) {
             await new Promise(resolve => setTimeout(resolve, ms));
             return { content: [{ type: 'text', text: JSON.stringify({ waited: ms }) }] };
@@ -370,7 +373,7 @@ server.tool(
         }
         await withPage(sessionId, async (ps, page) => {
             await page.waitForSelector(selector, { timeout: timeout || 30000 });
-        });
+        }, clientId);
         return { content: [{ type: 'text', text: JSON.stringify({ found: selector }) }] };
     }
 );

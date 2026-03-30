@@ -1,5 +1,5 @@
 
-import puppeteer, { Browser } from 'puppeteer-core';
+import { Browser } from 'puppeteer-core';
 import {
     SessionConfig,
     Session,
@@ -89,8 +89,12 @@ export class SessionManager {
 
         } else {
             // LambdaTest
-            const username = process.env.LT_USERNAME || 'generic_user';
-            const accessKey = process.env.LT_ACCESS_KEY || 'generic_key';
+            const username = process.env.LT_USERNAME;
+            const accessKey = process.env.LT_ACCESS_KEY;
+
+            if (!username || !accessKey) {
+                throw new Error('LambdaTest credentials not configured. Set LT_USERNAME and LT_ACCESS_KEY environment variables, or run "testmu-browser-cloud setup".');
+            }
 
             // Map adapter to LambdaTest plugin name and WebSocket endpoint
             const adapter = config.adapter || 'puppeteer';

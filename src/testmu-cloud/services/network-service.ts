@@ -11,6 +11,7 @@ export interface NetworkRequest {
 export class NetworkService {
     private requestLogs = new Map<string, NetworkRequest[]>();
     private activeRoutes = new Map<string, Set<string>>();
+    private mockResponses = new Map<string, Map<string, { status?: number, body?: string, contentType?: string }>>();
 
     /**
      * Block requests matching a URL pattern
@@ -40,18 +41,28 @@ export class NetworkService {
                 body: response.body || '',
             }));
         } else {
-            await page.setRequestInterception(true);
-            page.on('request', (req: any) => {
-                if (req.url().includes(url)) {
-                    req.respond({
-                        status: response.status || 200,
-                        contentType: response.contentType || 'application/json',
-                        body: response.body || '',
-                    });
-                } else {
-                    req.continue();
-                }
-            });
+            // Maintain a URL-to-response map and a single interception handler
+            const routes = this.getActiveRoutes(sessionId);
+            const mockKey = `mock:${url}`;
+            if (!routes.has('puppeteer:interception')) {
+                await page.setRequestInterception(true);
+                page.on('request', (req: any) => {
+                    const sessionMocks = this.getMockResponses(sessionId);
+                    const matchedUrl = Array.from(sessionMocks.keys()).find(u => req.url().includes(u));
+                    if (matchedUrl) {
+                        const r = sessionMocks.get(matchedUrl)!;
+                        req.respond({
+                            status: r.status || 200,
+                            contentType: r.contentType || 'application/json',
+                            body: r.body || '',
+                        });
+                    } else {
+                        req.continue();
+                    }
+                });
+                routes.add('puppeteer:interception');
+            }
+            this.getMockResponses(sessionId).set(url, response);
         }
         this.getActiveRoutes(sessionId).add(`mock:${url}`);
     }
@@ -60,12 +71,7 @@ export class NetworkService {
      * Set extra HTTP headers for all requests
      */
     async setHeaders(page: any, headers: Record<string, string>): Promise<void> {
-        const framework = detectFramework(page);
-        if (framework === 'playwright') {
-            await page.setExtraHTTPHeaders(headers);
-        } else {
-            await page.setExtraHTTPHeaders(headers);
-        }
+        await page.setExtraHTTPHeaders(headers);
     }
 
     /**
@@ -75,28 +81,15 @@ export class NetworkService {
         const logs: NetworkRequest[] = [];
         this.requestLogs.set(sessionId, logs);
 
-        const framework = detectFramework(page);
-        if (framework === 'playwright') {
-            page.on('response', (response: any) => {
-                logs.push({
-                    url: response.url(),
-                    method: response.request().method(),
-                    status: response.status(),
-                    resourceType: response.request().resourceType(),
-                    timestamp: Date.now(),
-                });
+        page.on('response', (response: any) => {
+            logs.push({
+                url: response.url(),
+                method: response.request().method(),
+                status: response.status(),
+                resourceType: response.request().resourceType(),
+                timestamp: Date.now(),
             });
-        } else {
-            page.on('response', (response: any) => {
-                logs.push({
-                    url: response.url(),
-                    method: response.request().method(),
-                    status: response.status(),
-                    resourceType: response.request().resourceType(),
-                    timestamp: Date.now(),
-                });
-            });
-        }
+        });
     }
 
     /**
@@ -125,5 +118,12 @@ export class NetworkService {
             this.activeRoutes.set(sessionId, new Set());
         }
         return this.activeRoutes.get(sessionId)!;
+    }
+
+    private getMockResponses(sessionId: string): Map<string, { status?: number, body?: string, contentType?: string }> {
+        if (!this.mockResponses.has(sessionId)) {
+            this.mockResponses.set(sessionId, new Map());
+        }
+        return this.mockResponses.get(sessionId)!;
     }
 }

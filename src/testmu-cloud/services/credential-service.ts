@@ -148,12 +148,12 @@ export class CredentialService {
     }
 
     /**
-     * Load credentials from disk
+     * Load credentials from disk (synchronous to avoid constructor race)
      */
-    private async loadCredentials(): Promise<void> {
+    private loadCredentials(): void {
         try {
-            if (await fs.pathExists(this.credentialsFile)) {
-                const data = await fs.readJson(this.credentialsFile);
+            if (fs.pathExistsSync(this.credentialsFile)) {
+                const data = fs.readJsonSync(this.credentialsFile);
                 if (Array.isArray(data)) {
                     for (const cred of data) {
                         this.credentials.set(cred.id, cred);

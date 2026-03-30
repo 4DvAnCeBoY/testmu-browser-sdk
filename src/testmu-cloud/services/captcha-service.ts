@@ -38,7 +38,9 @@ export class CaptchaService {
         });
 
         // Start async solving
-        this.processCapture(jobId, params);
+        this.processCapture(jobId, params).catch((err) => {
+            this.jobs.set(jobId, { id: jobId, status: 'failed', error: err instanceof Error ? err.message : String(err) });
+        });
 
         return {
             id: jobId,
@@ -91,17 +93,12 @@ export class CaptchaService {
                 status: 'processing'
             });
 
-            let solution: string;
-
-            if (this.apiKey) {
-                // Real API integration
-                solution = await this.callExternalService(params);
-            } else {
-                // Simulated solving for development
-                console.log(`[CaptchaService] No API key configured, using simulated solving`);
-                await this.simulateDelay(2000);
-                solution = `simulated_token_${Date.now()}`;
+            if (!this.apiKey) {
+                throw new Error('CAPTCHA_API_KEY is not configured. Set the CAPTCHA_API_KEY environment variable to enable captcha solving.');
             }
+
+            // Real API integration
+            const solution = await this.callExternalService(params);
 
             // Update to solved
             this.jobs.set(jobId, {
