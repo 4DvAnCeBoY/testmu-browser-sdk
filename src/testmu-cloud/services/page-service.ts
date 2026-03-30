@@ -4,11 +4,18 @@ import { detectFramework } from '../utils/framework-detect';
 
 export class PageService {
     private pageSessionMap = new WeakMap<object, string>();
+    private clientId?: string;
 
     constructor(
         private snapshotService: SnapshotService,
         private refStore: RefStore,
     ) {}
+
+    /** Set client ID for parallel session isolation */
+    setClientId(clientId: string): void {
+        this.clientId = clientId;
+        this.snapshotService.setClientId(clientId);
+    }
 
     // =================== Binding ===================
 
@@ -79,12 +86,8 @@ export class PageService {
         if (typeof selectorOrMs === 'number') {
             await new Promise(resolve => setTimeout(resolve, selectorOrMs));
         } else {
-            const framework = detectFramework(page);
-            if (framework === 'playwright') {
-                await page.locator(selectorOrMs).waitFor();
-            } else {
-                await page.waitForSelector(selectorOrMs);
-            }
+            // Support @ref selectors by resolving through the same path as click/fill
+            await this.resolveSelector(page, selectorOrMs);
         }
     }
 
@@ -117,11 +120,20 @@ export class PageService {
 
     async select(page: any, selector: string, ...values: string[]): Promise<void> {
         const framework = detectFramework(page);
-        const element = await this.resolveSelector(page, selector);
         if (framework === 'playwright') {
+            const element = await this.resolveSelector(page, selector);
             await element.selectOption(values);
         } else {
-            await element.select(...values);
+            // Puppeteer's ElementHandle doesn't have .select() — use page.select() with CSS selector
+            // For @ref selectors, resolve to the element and use evaluate to set value
+            const element = await this.resolveSelector(page, selector);
+            await element.evaluate((el: any, vals: string[]) => {
+                const select = el as HTMLSelectElement;
+                for (const option of Array.from(select.options)) {
+                    option.selected = vals.includes(option.value) || vals.includes(option.text);
+                }
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+            }, values);
         }
     }
 
@@ -168,12 +180,12 @@ export class PageService {
         } else {
             const srcBox = await srcEl.boundingBox();
             const tgtBox = await tgtEl.boundingBox();
-            if (srcBox && tgtBox) {
-                await page.mouse.move(srcBox.x + srcBox.width / 2, srcBox.y + srcBox.height / 2);
-                await page.mouse.down();
-                await page.mouse.move(tgtBox.x + tgtBox.width / 2, tgtBox.y + tgtBox.height / 2);
-                await page.mouse.up();
-            }
+            if (!srcBox) throw new Error(`Source element "${source}" has no bounding box (may be hidden or zero-size)`);
+            if (!tgtBox) throw new Error(`Target element "${target}" has no bounding box (may be hidden or zero-size)`);
+            await page.mouse.move(srcBox.x + srcBox.width / 2, srcBox.y + srcBox.height / 2);
+            await page.mouse.down();
+            await page.mouse.move(tgtBox.x + tgtBox.width / 2, tgtBox.y + tgtBox.height / 2);
+            await page.mouse.up();
         }
     }
 
@@ -195,13 +207,18 @@ export class PageService {
         const amount = options?.amount || 300;
         const direction = options?.direction || 'down';
         const deltaY = direction === 'up' ? -amount : direction === 'down' ? amount : 0;
+        const deltaX = direction === 'left' ? -amount : direction === 'right' ? amount : 0;
 
         if (options?.selector) {
             const element = await this.resolveSelector(page, options.selector);
-            await element.evaluate((el: any, dy: number) => el.scrollBy(0, dy), deltaY);
+            await element.evaluate((el: any, dx: number, dy: number) => el.scrollBy(dx, dy), deltaX, deltaY);
         } else {
-            const deltaX = direction === 'left' ? -amount : direction === 'right' ? amount : 0;
-            await page.mouse.wheel({ deltaX, deltaY });
+            const framework = detectFramework(page);
+            if (framework === 'playwright') {
+                await page.mouse.wheel(deltaX, deltaY);
+            } else {
+                await page.mouse.wheel({ deltaX, deltaY });
+            }
         }
     }
 
@@ -330,7 +347,7 @@ export class PageService {
 
     async findByRole(page: any, role: string, options?: { name?: string }): Promise<{ ref: string, name: string }[]> {
         const sessionId = this.getSessionId(page);
-        const stored = await this.refStore.load(sessionId);
+        const stored = await this.refStore.load(sessionId, this.clientId);
         if (!stored) return [];
         const results: { ref: string, name: string }[] = [];
         for (const [ref, mapping] of stored.refs) {
@@ -344,7 +361,7 @@ export class PageService {
 
     async findByText(page: any, text: string): Promise<{ ref: string, role: string, name: string }[]> {
         const sessionId = this.getSessionId(page);
-        const stored = await this.refStore.load(sessionId);
+        const stored = await this.refStore.load(sessionId, this.clientId);
         if (!stored) return [];
         const results: { ref: string, role: string, name: string }[] = [];
         for (const [ref, mapping] of stored.refs) {
@@ -361,8 +378,14 @@ export class PageService {
 
     // =================== Evaluate ===================
 
-    async evaluate(page: any, script: string): Promise<any> {
+    async evaluate(page: any, script: string, options?: { allowUnsafe?: boolean }): Promise<any> {
         this.getSessionId(page);
+        if (!options?.allowUnsafe) {
+            throw new Error(
+                'evaluate() with string scripts is restricted by default. ' +
+                'Pass { allowUnsafe: true } to explicitly opt in to arbitrary JS execution.'
+            );
+        }
         return await page.evaluate(script);
     }
 
@@ -373,7 +396,7 @@ export class PageService {
 
         if (selector.startsWith('@e')) {
             const sessionId = this.getSessionId(page);
-            const mapping = await this.refStore.get(sessionId, selector);
+            const mapping = await this.refStore.get(sessionId, selector, this.clientId);
             if (!mapping) {
                 throw new Error(`Unknown ref "${selector}". Run 'page snapshot' first to capture element refs.`);
             }

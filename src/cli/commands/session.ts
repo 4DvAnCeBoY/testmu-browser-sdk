@@ -55,7 +55,10 @@ export async function executeSessionCreate(options: SessionCreateOptions): Promi
   if (options.browserVersion) lambdatestOptions.browserVersion = options.browserVersion;
   if (options.deviceName) lambdatestOptions.deviceName = options.deviceName;
   if (options.build) lambdatestOptions.build = options.build;
-  if (options.name) lambdatestOptions.name = options.name;
+  // Auto-generate a unique, meaningful session name if not provided
+  // Format: cli-{adapter}-{YYYY-MM-DD-HHmmss}-{4char-random}
+  const sessionName = options.name || `cli-${options.adapter || 'puppeteer'}-${new Date().toISOString().replace(/[:.T]/g, '-').slice(0, 19)}-${Math.random().toString(36).slice(2, 6)}`;
+  lambdatestOptions.name = sessionName;
   if (creds.username || creds.accessKey) {
     lambdatestOptions['LT:Options'] = {
       username: creds.username,
@@ -107,7 +110,10 @@ export async function executeSessionRelease(id: string): Promise<ReleaseResponse
 
 export async function executeSessionReleaseAll(): Promise<ReleaseResponse> {
   const browser = getBrowser();
-  return browser.sessions.releaseAll();
+  const result = await browser.sessions.releaseAll();
+  const store = getSessionStore();
+  await store.deleteAll();
+  return result;
 }
 
 export function registerSessionCommand(program: any): void {

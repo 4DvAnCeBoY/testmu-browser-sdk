@@ -5,25 +5,119 @@ import { PageService } from '../testmu-cloud/services/page-service';
 import { SnapshotService } from '../testmu-cloud/services/snapshot-service';
 import path from 'path';
 import os from 'os';
+import fs from 'fs-extra';
+
+/** Sanitize clientId to prevent path traversal */
+function sanitizeClientId(id: string): string {
+    return id.replace(/[^a-zA-Z0-9_-]/g, '_');
+}
 
 const SESSIONS_DIR = path.join(os.homedir(), '.testmuai', 'sessions');
 
+// Unique client ID for this process — scopes ref and snapshot files to avoid cross-agent interference
+export const DEFAULT_CLIENT_ID = `cli-${process.pid}`;
+
+// Singleton instances to preserve state across CLI calls within one process
+let sessionStoreInstance: DiskSessionStore | null = null;
+let refStoreInstance: DiskRefStore | null = null;
+let pageServiceInstance: { pageService: PageService, snapshotService: SnapshotService } | null = null;
+
 export function getSessionStore(): DiskSessionStore {
-    return new DiskSessionStore(SESSIONS_DIR);
+    if (!sessionStoreInstance) {
+        sessionStoreInstance = new DiskSessionStore(SESSIONS_DIR);
+    }
+    return sessionStoreInstance;
 }
 
 export function getRefStore(): DiskRefStore {
-    return new DiskRefStore(SESSIONS_DIR);
+    if (!refStoreInstance) {
+        refStoreInstance = new DiskRefStore(SESSIONS_DIR);
+    }
+    return refStoreInstance;
 }
 
 export function createPageService(): { pageService: PageService, snapshotService: SnapshotService } {
-    const refStore = getRefStore();
-    const snapshotService = new SnapshotService(refStore);
-    const pageService = new PageService(snapshotService, refStore);
-    return { pageService, snapshotService };
+    if (!pageServiceInstance) {
+        const refStore = getRefStore();
+        const snapshotService = new SnapshotService(refStore);
+        const pageService = new PageService(snapshotService, refStore);
+        pageServiceInstance = { pageService, snapshotService };
+    }
+    return pageServiceInstance;
 }
 
-export async function getSessionPage(sessionId: string): Promise<{
+/**
+ * Save the previous snapshot to disk so cross-process --diff works.
+ * When clientId is provided, uses prev-snapshot.{clientId}.json for isolation.
+ */
+export async function savePreviousSnapshot(sessionId: string, snapshot: any, clientId?: string): Promise<void> {
+    const dir = path.join(SESSIONS_DIR, sessionId);
+    await fs.ensureDir(dir);
+    const tmpPath = path.join(dir, `prev-snapshot.${process.pid}.tmp`);
+    await fs.writeFile(tmpPath, JSON.stringify(snapshot), { mode: 0o600 });
+    const fileName = clientId ? `prev-snapshot.${clientId}.json` : 'prev-snapshot.json';
+    await fs.rename(tmpPath, path.join(dir, fileName));
+}
+
+/**
+ * Load the previous snapshot from disk for cross-process --diff.
+ * When clientId is provided, reads from prev-snapshot.{clientId}.json.
+ */
+export async function loadPreviousSnapshot(sessionId: string, clientId?: string): Promise<any | null> {
+    const fileName = clientId ? `prev-snapshot.${clientId}.json` : 'prev-snapshot.json';
+    const filePath = path.join(SESSIONS_DIR, sessionId, fileName);
+    if (!await fs.pathExists(filePath)) return null;
+    try {
+        return await fs.readJson(filePath);
+    } catch {
+        return null;
+    }
+}
+
+function pageStateFileName(clientId?: string): string {
+    return clientId ? `page-state.${sanitizeClientId(clientId)}.json` : 'page-state.json';
+}
+
+/**
+ * Save the active page URL for this session so the next CLI process can find the right tab.
+ * When clientId is provided, scoped to prevent cross-agent collisions.
+ */
+export async function savePageState(sessionId: string, url: string, clientId?: string): Promise<void> {
+    const dir = path.join(SESSIONS_DIR, sessionId);
+    await fs.ensureDir(dir);
+    const fileName = pageStateFileName(clientId);
+    const tmpPath = path.join(dir, `${fileName}.${process.pid}.tmp`);
+    await fs.writeFile(tmpPath, JSON.stringify({ url, timestamp: Date.now() }), { mode: 0o600 });
+    await fs.rename(tmpPath, path.join(dir, fileName));
+}
+
+/**
+ * Load the last active page URL for cross-process reconnection.
+ * When clientId is provided, reads from client-scoped file.
+ */
+async function loadPageState(sessionId: string, clientId?: string): Promise<string | null> {
+    const filePath = path.join(SESSIONS_DIR, sessionId, pageStateFileName(clientId));
+    if (!await fs.pathExists(filePath)) return null;
+    try {
+        const data = await fs.readJson(filePath);
+        return data.url || null;
+    } catch {
+        return null;
+    }
+}
+
+function isRealUrl(url: string): boolean {
+    return !!url && !url.startsWith('chrome://') && !url.startsWith('about:') && url !== '';
+}
+
+export interface GetSessionPageOptions {
+    /** If true, skip auto-navigating to the last known URL on reconnect. Default: false */
+    noAutoNavigate?: boolean;
+    /** Client ID for session isolation — scopes page-state and refs per agent */
+    clientId?: string;
+}
+
+export async function getSessionPage(sessionId: string, options?: GetSessionPageOptions): Promise<{
     page: any,
     framework: 'puppeteer' | 'playwright',
     cleanup: () => Promise<void>,
@@ -34,6 +128,8 @@ export async function getSessionPage(sessionId: string): Promise<{
     if (session.status !== 'live') throw new Error(`Session "${sessionId}" is ${session.status}.`);
 
     const adapter = (session as any).config?.adapter || 'puppeteer';
+    const clientId = options?.clientId;
+    const lastUrl = options?.noAutoNavigate ? null : await loadPageState(sessionId, clientId);
 
     if (adapter === 'playwright') {
         const { chromium } = await import('playwright-core');
@@ -41,7 +137,20 @@ export async function getSessionPage(sessionId: string): Promise<{
         const contexts = browser.contexts();
         const context = contexts[0] || await browser.newContext();
         const pages = context.pages();
-        const page = pages[pages.length - 1] || await context.newPage();
+
+        // 1. Try to find the page matching the last navigated URL
+        let page = lastUrl ? pages.find(p => p.url() === lastUrl) : undefined;
+        // 2. Fall back to any page with a real URL
+        if (!page) page = pages.find(p => isRealUrl(p.url()));
+        // 3. Fall back to last page or create new
+        if (!page) page = pages[pages.length - 1] || await context.newPage();
+
+        // If we have a last known URL and the page isn't on it, navigate there
+        const pwUrl = page.url();
+        if (lastUrl && (!isRealUrl(pwUrl) || pwUrl !== lastUrl)) {
+            await page.goto(lastUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+        }
+
         return {
             page,
             framework: 'playwright',
@@ -50,7 +159,23 @@ export async function getSessionPage(sessionId: string): Promise<{
     } else {
         const browser = await puppeteer.connect({ browserWSEndpoint: session.websocketUrl });
         const pages = await browser.pages();
-        const page = pages[pages.length - 1] || await browser.newPage();
+
+        // 1. Try to find the page matching the last navigated URL
+        let page = lastUrl ? pages.find(p => p.url() === lastUrl) : undefined;
+        // 2. Fall back to any page with a real URL
+        if (!page) page = pages.find(p => isRealUrl(p.url()));
+        // 3. Fall back to last page or create new
+        if (!page) page = pages[pages.length - 1] || await browser.newPage();
+
+        // Puppeteer CDP reconnection may leave the page on a different tab.
+        // Only navigate if the page isn't already on the expected URL.
+        const currentUrl = page.url();
+        if (lastUrl && !currentUrl.startsWith(lastUrl.replace(/\/$/, ''))) {
+            await page.goto(lastUrl, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
+        }
+        // Ensure DOM is ready
+        await page.waitForSelector('body', { timeout: 10000 }).catch(() => {});
+
         return {
             page,
             framework: 'puppeteer',

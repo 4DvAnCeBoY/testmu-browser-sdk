@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1774540227258,
+  "lastScanned": 1774872708487,
   "projectRoot": "/Users/sirajk/Documents/plg-exp/browser-cloud",
   "techStack": {
     "languages": [
@@ -58,105 +58,396 @@
     "isMonorepo": false,
     "workspaces": [],
     "mainDirectories": [
+      "docs",
+      "examples",
+      "scripts",
       "src"
     ],
     "gitBranches": null
   },
   "customNotes": [],
   "directoryMap": {
+    "dist": {
+      "path": "dist",
+      "purpose": "Distribution/build output",
+      "fileCount": 4,
+      "lastAccessed": 1774872708458,
+      "keyFiles": [
+        "index.d.ts",
+        "index.d.ts.map",
+        "index.js",
+        "index.js.map"
+      ]
+    },
+    "docs": {
+      "path": "docs",
+      "purpose": "Documentation",
+      "fileCount": 1,
+      "lastAccessed": 1774872708459,
+      "keyFiles": [
+        "competitive-analysis.md"
+      ]
+    },
+    "examples": {
+      "path": "examples",
+      "purpose": "Example code",
+      "fileCount": 17,
+      "lastAccessed": 1774872708460,
+      "keyFiles": [
+        "README.md",
+        "agent-with-local-llm.ts",
+        "ai-agent-computer-actions.ts",
+        "context-and-profiles.ts",
+        "ecommerce-checkout-test.js"
+      ]
+    },
+    "hooks": {
+      "path": "hooks",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1774872708461,
+      "keyFiles": [
+        "hooks.json"
+      ]
+    },
+    "scripts": {
+      "path": "scripts",
+      "purpose": "Build/utility scripts",
+      "fileCount": 1,
+      "lastAccessed": 1774872708461,
+      "keyFiles": [
+        "session-start.js"
+      ]
+    },
+    "skills": {
+      "path": "skills",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1774872708463,
+      "keyFiles": []
+    },
     "src": {
       "path": "src",
       "purpose": "Source code",
       "fileCount": 1,
-      "lastAccessed": 1774540227245,
+      "lastAccessed": 1774872708464,
       "keyFiles": [
         "index.ts"
+      ]
+    },
+    "test-features": {
+      "path": "test-features",
+      "purpose": null,
+      "fileCount": 14,
+      "lastAccessed": 1774872708466,
+      "keyFiles": [
+        "01a-session-create-puppeteer.ts",
+        "01b-session-create-playwright.ts",
+        "01c-session-lifecycle.ts",
+        "01d-session-config-options.ts",
+        "01e-session-create-selenium.ts"
       ]
     }
   },
   "hotPaths": [
     {
-      "path": "",
-      "accessCount": 3,
-      "lastAccessed": 1774541462960,
-      "type": "directory"
+      "path": "src/cli/commands/page.ts",
+      "accessCount": 30,
+      "lastAccessed": 1774888805091,
+      "type": "file"
     },
     {
-      "path": "docs/superpowers/specs/2026-03-26-ai-plugin-design.md",
-      "accessCount": 3,
-      "lastAccessed": 1774542343555,
+      "path": "tests/integration/sdk-tests.ts",
+      "accessCount": 21,
+      "lastAccessed": 1774882142118,
+      "type": "file"
+    },
+    {
+      "path": "src/cli/page-manager.ts",
+      "accessCount": 21,
+      "lastAccessed": 1774888772589,
+      "type": "file"
+    },
+    {
+      "path": "tests/integration/cli-tests.ts",
+      "accessCount": 19,
+      "lastAccessed": 1774887636355,
+      "type": "file"
+    },
+    {
+      "path": "src/testmu-cloud/services/page-service.ts",
+      "accessCount": 17,
+      "lastAccessed": 1774888715164,
+      "type": "file"
+    },
+    {
+      "path": "src/testmu-cloud/services/snapshot-service.ts",
+      "accessCount": 8,
+      "lastAccessed": 1774888664644,
+      "type": "file"
+    },
+    {
+      "path": "tsconfig.json",
+      "accessCount": 6,
+      "lastAccessed": 1774877983294,
       "type": "file"
     },
     {
       "path": "package.json",
-      "accessCount": 2,
-      "lastAccessed": 1774541454525,
+      "accessCount": 6,
+      "lastAccessed": 1774878838336,
       "type": "file"
     },
     {
-      "path": "README.md",
+      "path": "src/cli/commands/session.ts",
+      "accessCount": 6,
+      "lastAccessed": 1774886789833,
+      "type": "file"
+    },
+    {
+      "path": "tests/integration/helpers.ts",
+      "accessCount": 6,
+      "lastAccessed": 1774886801949,
+      "type": "file"
+    },
+    {
+      "path": "src/testmu-cloud/stores/disk-ref-store.ts",
+      "accessCount": 6,
+      "lastAccessed": 1774888728890,
+      "type": "file"
+    },
+    {
+      "path": "jest.integration.config.js",
+      "accessCount": 6,
+      "lastAccessed": 1774889351330,
+      "type": "file"
+    },
+    {
+      "path": "tests/integration/local-sdk-tests.ts",
+      "accessCount": 6,
+      "lastAccessed": 1774889654121,
+      "type": "file"
+    },
+    {
+      "path": "jest.config.js",
+      "accessCount": 5,
+      "lastAccessed": 1774878862046,
+      "type": "file"
+    },
+    {
+      "path": "src/testmu-cloud/stores/ref-store.ts",
+      "accessCount": 4,
+      "lastAccessed": 1774877697041,
+      "type": "file"
+    },
+    {
+      "path": "src/testmu-cloud/stores/session-store.ts",
+      "accessCount": 3,
+      "lastAccessed": 1774875882926,
+      "type": "file"
+    },
+    {
+      "path": "src/testmu-cloud/index.ts",
+      "accessCount": 3,
+      "lastAccessed": 1774877705950,
+      "type": "file"
+    },
+    {
+      "path": "",
+      "accessCount": 3,
+      "lastAccessed": 1774877856066,
+      "type": "directory"
+    },
+    {
+      "path": "src/testmu-cloud/stores/memory-ref-store.ts",
+      "accessCount": 3,
+      "lastAccessed": 1774877868204,
+      "type": "file"
+    },
+    {
+      "path": "src",
       "accessCount": 2,
-      "lastAccessed": 1774541454536,
+      "lastAccessed": 1774874270147,
+      "type": "directory"
+    },
+    {
+      "path": "src/testmu-cloud/stores/disk-session-store.ts",
+      "accessCount": 2,
+      "lastAccessed": 1774875059005,
+      "type": "file"
+    },
+    {
+      "path": "src/cli/index.ts",
+      "accessCount": 2,
+      "lastAccessed": 1774875811397,
+      "type": "file"
+    },
+    {
+      "path": "src/testmu-cloud/stores/__tests__/ref-store.test.ts",
+      "accessCount": 2,
+      "lastAccessed": 1774877688367,
+      "type": "file"
+    },
+    {
+      "path": "src/testmu-cloud/types.ts",
+      "accessCount": 2,
+      "lastAccessed": 1774877705011,
+      "type": "file"
+    },
+    {
+      "path": "src/testmu-cloud/services/network-service.ts",
+      "accessCount": 2,
+      "lastAccessed": 1774877712671,
+      "type": "file"
+    },
+    {
+      "path": "examples/saucedemo-login-cart.ts",
+      "accessCount": 2,
+      "lastAccessed": 1774877719144,
+      "type": "file"
+    },
+    {
+      "path": "src/testmu-cloud/adapters/puppeteer.ts",
+      "accessCount": 2,
+      "lastAccessed": 1774877992969,
+      "type": "file"
+    },
+    {
+      "path": "src/testmu-cloud/adapters/playwright.ts",
+      "accessCount": 2,
+      "lastAccessed": 1774877993634,
+      "type": "file"
+    },
+    {
+      "path": "src/testmu-cloud/session-manager.ts",
+      "accessCount": 2,
+      "lastAccessed": 1774886810464,
+      "type": "file"
+    },
+    {
+      "path": "src/testmu-cloud/services/__tests__/page-service.test.ts",
+      "accessCount": 1,
+      "lastAccessed": 1774874236168,
+      "type": "file"
+    },
+    {
+      "path": "src/testmu-cloud/services/__tests__/snapshot-service.test.ts",
+      "accessCount": 1,
+      "lastAccessed": 1774874236964,
+      "type": "file"
+    },
+    {
+      "path": "src/testmu-cloud/stores/memory-session-store.ts",
+      "accessCount": 1,
+      "lastAccessed": 1774874246504,
+      "type": "file"
+    },
+    {
+      "path": "src/testmu-cloud/utils/framework-detect.ts",
+      "accessCount": 1,
+      "lastAccessed": 1774874247034,
+      "type": "file"
+    },
+    {
+      "path": "src/testmu-cloud",
+      "accessCount": 1,
+      "lastAccessed": 1774874268989,
+      "type": "directory"
+    },
+    {
+      "path": "src/testmu-cloud/stores/__tests__/disk-session-store.test.ts",
+      "accessCount": 1,
+      "lastAccessed": 1774874276270,
       "type": "file"
     },
     {
       "path": "src/index.ts",
       "accessCount": 1,
-      "lastAccessed": 1774540659130,
+      "lastAccessed": 1774875810032,
       "type": "file"
     },
     {
-      "path": "src/testmu-cloud/index.ts",
+      "path": "src/cli/config.ts",
       "accessCount": 1,
-      "lastAccessed": 1774540664685,
+      "lastAccessed": 1774875810977,
       "type": "file"
     },
     {
-      "path": "src/testmu-cloud/types.ts",
+      "path": "examples/standard-puppeteer.js",
       "accessCount": 1,
-      "lastAccessed": 1774540665042,
+      "lastAccessed": 1774875820536,
       "type": "file"
     },
     {
-      "path": ".claude/settings.local.json",
+      "path": "examples/full-api-demo.ts",
       "accessCount": 1,
-      "lastAccessed": 1774541454855,
-      "type": "file"
-    },
-    {
-      "path": "src/testmu-cloud/services/quick-actions.ts",
-      "accessCount": 1,
-      "lastAccessed": 1774542344686,
-      "type": "file"
-    },
-    {
-      "path": "src/testmu-cloud/session-manager.ts",
-      "accessCount": 1,
-      "lastAccessed": 1774542344827,
+      "lastAccessed": 1774875821125,
       "type": "file"
     },
     {
       "path": "src/testmu-cloud/services/computer-service.ts",
       "accessCount": 1,
-      "lastAccessed": 1774542352861,
+      "lastAccessed": 1774875823586,
       "type": "file"
     },
     {
-      "path": "src/testmu-cloud/services/tunnel-service.ts",
+      "path": "src/testmu-cloud/adapters/selenium.ts",
       "accessCount": 1,
-      "lastAccessed": 1774542353394,
+      "lastAccessed": 1774875824263,
       "type": "file"
     },
     {
-      "path": "tsconfig.json",
+      "path": "src/testmu-cloud/services/context-service.ts",
       "accessCount": 1,
-      "lastAccessed": 1774542353516,
+      "lastAccessed": 1774875824591,
       "type": "file"
     },
     {
-      "path": "docs/superpowers/plans/2026-03-26-ai-plugin.md",
+      "path": "src/mcp/index.ts",
       "accessCount": 1,
-      "lastAccessed": 1774542611884,
+      "lastAccessed": 1774875828021,
+      "type": "file"
+    },
+    {
+      "path": "README.md",
+      "accessCount": 1,
+      "lastAccessed": 1774875871271,
+      "type": "file"
+    },
+    {
+      "path": "CLI.md",
+      "accessCount": 1,
+      "lastAccessed": 1774875871286,
+      "type": "file"
+    },
+    {
+      "path": "src/testmu-cloud/services/captcha-service.ts",
+      "accessCount": 1,
+      "lastAccessed": 1774875874196,
+      "type": "file"
+    },
+    {
+      "path": "src/testmu-cloud/services/credential-service.ts",
+      "accessCount": 1,
+      "lastAccessed": 1774875874450,
+      "type": "file"
+    },
+    {
+      "path": "src/testmu-cloud/services/quick-actions.ts",
+      "accessCount": 1,
+      "lastAccessed": 1774875880596,
+      "type": "file"
+    },
+    {
+      "path": "src/testmu-cloud/services/__tests__",
+      "accessCount": 1,
+      "lastAccessed": 1774878868597,
+      "type": "directory"
+    },
+    {
+      "path": "tests/debug-session.js",
+      "accessCount": 1,
+      "lastAccessed": 1774884432211,
       "type": "file"
     }
   ],

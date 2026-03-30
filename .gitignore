@@ -59,6 +59,7 @@ tmp/
 temp/
 *.tmp
 *.temp
+.omc/
 
 # TypeScript cache
 *.tsbuildinfo

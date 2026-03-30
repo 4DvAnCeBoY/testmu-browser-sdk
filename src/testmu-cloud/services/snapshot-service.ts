@@ -1,12 +1,9 @@
 import { RefStore, RefMapping } from '../stores/ref-store';
 
 export interface SnapshotOptions {
-    interactiveOnly?: boolean;
     maxDepth?: number;
     maxElements?: number;
-    selector?: string;
     compact?: boolean;
-    includeFrames?: boolean;
 }
 
 export interface SnapshotNode {
@@ -67,8 +64,14 @@ function shouldAssignRef(role: string): boolean {
 
 export class SnapshotService {
     private previousSnapshots = new Map<string, SnapshotResult>();
+    private clientId?: string;
 
     constructor(private refStore: RefStore) {}
+
+    /** Set client ID for parallel session isolation */
+    setClientId(clientId: string): void {
+        this.clientId = clientId;
+    }
 
     async capture(page: any, sessionId: string, options: SnapshotOptions = {}): Promise<SnapshotResult> {
         const maxElements = options.maxElements || 500;
@@ -149,8 +152,8 @@ export class SnapshotService {
 
         const tree = processNode(rawTree, 0) || { role: 'WebArea', name: title };
 
-        // Store refs
-        await this.refStore.save(sessionId, refMap, url);
+        // Store refs (with clientId for parallel isolation)
+        await this.refStore.save(sessionId, refMap, url, this.clientId);
 
         const snapshotResult: SnapshotResult = {
             url,
@@ -175,6 +178,10 @@ export class SnapshotService {
 
     getPrevious(sessionId: string): SnapshotResult | null {
         return this.previousSnapshots.get(sessionId) || null;
+    }
+
+    setPrevious(sessionId: string, snapshot: SnapshotResult): void {
+        this.previousSnapshots.set(sessionId, snapshot);
     }
 
     toCompactText(result: SnapshotResult): string {
@@ -266,12 +273,15 @@ export class SnapshotService {
         return lines.join('\n');
     }
 
-    private collectRefs(node: SnapshotNode, map = new Map<string, SnapshotNode>()): Map<string, SnapshotNode> {
-        // Key by role+name for matching across snapshots (refs may change)
-        const key = `${node.role}:${node.name}`;
+    private collectRefs(node: SnapshotNode, map = new Map<string, SnapshotNode>(), counters = new Map<string, number>()): Map<string, SnapshotNode> {
+        // Key by role+name+occurrence index to handle duplicate names (e.g. multiple "Submit" buttons)
+        const baseKey = `${node.role}:${node.name}`;
+        const count = counters.get(baseKey) || 0;
+        counters.set(baseKey, count + 1);
+        const key = `${baseKey}:${count}`;
         if (node.ref) map.set(key, node);
         if (node.children) {
-            for (const child of node.children) this.collectRefs(child, map);
+            for (const child of node.children) this.collectRefs(child, map, counters);
         }
         return map;
     }

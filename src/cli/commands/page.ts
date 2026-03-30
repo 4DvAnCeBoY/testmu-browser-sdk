@@ -1,13 +1,18 @@
 import { Command } from 'commander';
 import { Output } from '../output';
-import { getSessionPage, createPageService, resolveSessionId } from '../page-manager';
+import { getSessionPage, createPageService, resolveSessionId, savePreviousSnapshot, loadPreviousSnapshot, savePageState, DEFAULT_CLIENT_ID } from '../page-manager';
 import { NetworkService } from '../../testmu-cloud/services/network-service';
 
 async function withSession(options: any, fn: (pageService: any, browserPage: any) => Promise<any>) {
     const sessionId = await resolveSessionId(options.session);
-    const { page: browserPage, cleanup } = await getSessionPage(sessionId);
+    const clientId: string | undefined = options.clientId ?? DEFAULT_CLIENT_ID;
+    const { page: browserPage, cleanup } = await getSessionPage(sessionId, {
+        noAutoNavigate: options.noAutoNavigate,
+        clientId,
+    });
     const { pageService } = createPageService();
     pageService.bind(browserPage, sessionId);
+    pageService.setClientId(clientId!);
     try {
         await fn(pageService, browserPage);
     } finally {
@@ -16,7 +21,8 @@ async function withSession(options: any, fn: (pageService: any, browserPage: any
 }
 
 export function registerPageCommand(program: Command): void {
-    const page = program.command('page').description('Page interaction and snapshot tools (selector-based)');
+    const page = program.command('page').description('Page interaction and snapshot tools (selector-based)')
+        .option('--no-auto-navigate', 'Skip auto-navigating to last known URL on reconnect');
 
     // =================== Snapshot ===================
     page
@@ -24,19 +30,27 @@ export function registerPageCommand(program: Command): void {
         .description('Capture accessibility tree with @ref element IDs')
         .option('--session <id>', 'Session ID')
         .option('--compact', 'Token-efficient text output')
-        .option('--interactive-only', 'Only include interactive elements')
         .option('--max-elements <n>', 'Max refs to assign (default: 500)')
         .option('--diff', 'Show changes since last snapshot')
+        .option('--client-id <id>', 'Client ID for session isolation (default: auto-generated from PID)')
         .action(async (options: any) => {
+            const clientId: string = options.clientId ?? DEFAULT_CLIENT_ID;
             try {
                 await withSession(options, async (pageService, browserPage) => {
+                    const sessionId = await resolveSessionId(options.session);
                     const snapshotOpts = {
                         compact: options.compact,
-                        interactiveOnly: options.interactiveOnly,
                         maxElements: options.maxElements ? parseInt(options.maxElements) : undefined,
                     };
                     if (options.diff) {
-                        const { diff, compactText } = await pageService.snapshotDiff(browserPage, snapshotOpts);
+                        // Load previous snapshot from disk for cross-process diff support
+                        const prevSnapshot = await loadPreviousSnapshot(sessionId, clientId);
+                        if (prevSnapshot) {
+                            const { snapshotService } = createPageService();
+                            snapshotService.setPrevious(sessionId, prevSnapshot);
+                        }
+                        const { diff, current, compactText } = await pageService.snapshotDiff(browserPage, snapshotOpts);
+                        await savePreviousSnapshot(sessionId, current, clientId);
                         if (options.compact && compactText) {
                             process.stdout.write(compactText + '\n');
                         } else {
@@ -44,6 +58,7 @@ export function registerPageCommand(program: Command): void {
                         }
                     } else {
                         const result = await pageService.snapshot(browserPage, snapshotOpts);
+                        await savePreviousSnapshot(sessionId, result, clientId);
                         if (options.compact && result.compactText) {
                             process.stdout.write(result.compactText + '\n');
                         } else {
@@ -62,13 +77,21 @@ export function registerPageCommand(program: Command): void {
         .command('navigate <url>')
         .description('Navigate to URL')
         .option('--session <id>', 'Session ID')
+        .option('--client-id <id>', 'Client ID for session isolation (default: auto-generated from PID)')
         .action(async (url: string, options: any) => {
             try {
-                await withSession(options, async (ps, bp) => Output.success(await ps.navigate(bp, url)));
+                await withSession(options, async (ps, bp) => {
+                    const result = await ps.navigate(bp, url);
+                    const sessionId = await resolveSessionId(options.session);
+                    const clientId: string | undefined = options.clientId ?? DEFAULT_CLIENT_ID;
+                    await savePageState(sessionId, result.url, clientId);
+                    Output.success(result);
+                });
             } catch (err) { Output.error(err instanceof Error ? err.message : String(err)); process.exit(1); }
         });
 
     page.command('back').description('Navigate back').option('--session <id>', 'Session ID')
+        .option('--client-id <id>', 'Client ID for session isolation (default: auto-generated from PID)')
         .action(async (options: any) => {
             try {
                 await withSession(options, async (ps, bp) => Output.success(await ps.back(bp)));
@@ -76,6 +99,7 @@ export function registerPageCommand(program: Command): void {
         });
 
     page.command('forward').description('Navigate forward').option('--session <id>', 'Session ID')
+        .option('--client-id <id>', 'Client ID for session isolation (default: auto-generated from PID)')
         .action(async (options: any) => {
             try {
                 await withSession(options, async (ps, bp) => Output.success(await ps.forward(bp)));
@@ -83,6 +107,7 @@ export function registerPageCommand(program: Command): void {
         });
 
     page.command('reload').description('Reload page').option('--session <id>', 'Session ID')
+        .option('--client-id <id>', 'Client ID for session isolation (default: auto-generated from PID)')
         .action(async (options: any) => {
             try {
                 await withSession(options, async (ps, bp) => Output.success(await ps.reload(bp)));
@@ -90,6 +115,7 @@ export function registerPageCommand(program: Command): void {
         });
 
     page.command('wait <selectorOrMs>').description('Wait for element or milliseconds').option('--session <id>', 'Session ID')
+        .option('--client-id <id>', 'Client ID for session isolation (default: auto-generated from PID)')
         .action(async (selectorOrMs: string, options: any) => {
             try {
                 const value = /^\d+$/.test(selectorOrMs) ? parseInt(selectorOrMs) : selectorOrMs;
@@ -99,6 +125,7 @@ export function registerPageCommand(program: Command): void {
 
     // =================== Interaction ===================
     page.command('click <selector>').description('Click element by @ref or CSS selector').option('--session <id>', 'Session ID')
+        .option('--client-id <id>', 'Client ID for session isolation (default: auto-generated from PID)')
         .action(async (selector: string, options: any) => {
             try {
                 await withSession(options, async (ps, bp) => { await ps.click(bp, selector); Output.success({ clicked: selector }); });
@@ -106,6 +133,7 @@ export function registerPageCommand(program: Command): void {
         });
 
     page.command('fill <selector> <value>').description('Fill input by @ref or CSS selector').option('--session <id>', 'Session ID')
+        .option('--client-id <id>', 'Client ID for session isolation (default: auto-generated from PID)')
         .action(async (selector: string, value: string, options: any) => {
             try {
                 await withSession(options, async (ps, bp) => { await ps.fill(bp, selector, value); Output.success({ filled: selector, value }); });
@@ -113,6 +141,7 @@ export function registerPageCommand(program: Command): void {
         });
 
     page.command('select <selector> <values...>').description('Select dropdown option').option('--session <id>', 'Session ID')
+        .option('--client-id <id>', 'Client ID for session isolation (default: auto-generated from PID)')
         .action(async (selector: string, values: string[], options: any) => {
             try {
                 await withSession(options, async (ps, bp) => { await ps.select(bp, selector, ...values); Output.success({ selected: selector, values }); });
@@ -120,6 +149,7 @@ export function registerPageCommand(program: Command): void {
         });
 
     page.command('check <selector>').description('Check checkbox').option('--session <id>', 'Session ID')
+        .option('--client-id <id>', 'Client ID for session isolation (default: auto-generated from PID)')
         .action(async (selector: string, options: any) => {
             try {
                 await withSession(options, async (ps, bp) => { await ps.check(bp, selector); Output.success({ checked: selector }); });
@@ -127,6 +157,7 @@ export function registerPageCommand(program: Command): void {
         });
 
     page.command('uncheck <selector>').description('Uncheck checkbox').option('--session <id>', 'Session ID')
+        .option('--client-id <id>', 'Client ID for session isolation (default: auto-generated from PID)')
         .action(async (selector: string, options: any) => {
             try {
                 await withSession(options, async (ps, bp) => { await ps.uncheck(bp, selector); Output.success({ unchecked: selector }); });
@@ -134,6 +165,7 @@ export function registerPageCommand(program: Command): void {
         });
 
     page.command('hover <selector>').description('Hover element').option('--session <id>', 'Session ID')
+        .option('--client-id <id>', 'Client ID for session isolation (default: auto-generated from PID)')
         .action(async (selector: string, options: any) => {
             try {
                 await withSession(options, async (ps, bp) => { await ps.hover(bp, selector); Output.success({ hovered: selector }); });
@@ -141,6 +173,7 @@ export function registerPageCommand(program: Command): void {
         });
 
     page.command('press <key>').description('Press keyboard key').option('--session <id>', 'Session ID')
+        .option('--client-id <id>', 'Client ID for session isolation (default: auto-generated from PID)')
         .action(async (key: string, options: any) => {
             try {
                 await withSession(options, async (ps, bp) => { await ps.press(bp, key); Output.success({ pressed: key }); });
@@ -151,6 +184,7 @@ export function registerPageCommand(program: Command): void {
     const get = page.command('get').description('Query element properties');
 
     get.command('text <selector>').description('Get element text').option('--session <id>', 'Session ID')
+        .option('--client-id <id>', 'Client ID for session isolation (default: auto-generated from PID)')
         .action(async (selector: string, options: any) => {
             try {
                 await withSession(options, async (ps, bp) => Output.success({ text: await ps.getText(bp, selector) }));
@@ -158,6 +192,7 @@ export function registerPageCommand(program: Command): void {
         });
 
     get.command('html <selector>').description('Get element HTML').option('--session <id>', 'Session ID')
+        .option('--client-id <id>', 'Client ID for session isolation (default: auto-generated from PID)')
         .action(async (selector: string, options: any) => {
             try {
                 await withSession(options, async (ps, bp) => Output.success({ html: await ps.getHtml(bp, selector) }));
@@ -165,6 +200,7 @@ export function registerPageCommand(program: Command): void {
         });
 
     get.command('value <selector>').description('Get input value').option('--session <id>', 'Session ID')
+        .option('--client-id <id>', 'Client ID for session isolation (default: auto-generated from PID)')
         .action(async (selector: string, options: any) => {
             try {
                 await withSession(options, async (ps, bp) => Output.success({ value: await ps.getValue(bp, selector) }));
@@ -172,6 +208,7 @@ export function registerPageCommand(program: Command): void {
         });
 
     get.command('attr <selector> <attribute>').description('Get element attribute').option('--session <id>', 'Session ID')
+        .option('--client-id <id>', 'Client ID for session isolation (default: auto-generated from PID)')
         .action(async (selector: string, attribute: string, options: any) => {
             try {
                 await withSession(options, async (ps, bp) => Output.success({ attribute, value: await ps.getAttr(bp, selector, attribute) }));
@@ -179,6 +216,7 @@ export function registerPageCommand(program: Command): void {
         });
 
     get.command('url').description('Get current URL').option('--session <id>', 'Session ID')
+        .option('--client-id <id>', 'Client ID for session isolation (default: auto-generated from PID)')
         .action(async (options: any) => {
             try {
                 await withSession(options, async (ps, bp) => Output.success({ url: await ps.getUrl(bp) }));
@@ -186,6 +224,7 @@ export function registerPageCommand(program: Command): void {
         });
 
     get.command('title').description('Get page title').option('--session <id>', 'Session ID')
+        .option('--client-id <id>', 'Client ID for session isolation (default: auto-generated from PID)')
         .action(async (options: any) => {
             try {
                 await withSession(options, async (ps, bp) => Output.success({ title: await ps.getTitle(bp) }));
@@ -196,6 +235,7 @@ export function registerPageCommand(program: Command): void {
     const is = page.command('is').description('Check element state');
 
     is.command('visible <selector>').description('Check if element is visible').option('--session <id>', 'Session ID')
+        .option('--client-id <id>', 'Client ID for session isolation (default: auto-generated from PID)')
         .action(async (selector: string, options: any) => {
             try {
                 await withSession(options, async (ps, bp) => Output.success({ visible: await ps.isVisible(bp, selector) }));
@@ -203,6 +243,7 @@ export function registerPageCommand(program: Command): void {
         });
 
     is.command('enabled <selector>').description('Check if element is enabled').option('--session <id>', 'Session ID')
+        .option('--client-id <id>', 'Client ID for session isolation (default: auto-generated from PID)')
         .action(async (selector: string, options: any) => {
             try {
                 await withSession(options, async (ps, bp) => Output.success({ enabled: await ps.isEnabled(bp, selector) }));
@@ -210,6 +251,7 @@ export function registerPageCommand(program: Command): void {
         });
 
     is.command('checked <selector>').description('Check if element is checked').option('--session <id>', 'Session ID')
+        .option('--client-id <id>', 'Client ID for session isolation (default: auto-generated from PID)')
         .action(async (selector: string, options: any) => {
             try {
                 await withSession(options, async (ps, bp) => Output.success({ checked: await ps.isChecked(bp, selector) }));
@@ -220,6 +262,7 @@ export function registerPageCommand(program: Command): void {
     const find = page.command('find').description('Find elements by role, text, or label');
 
     find.command('role <role>').description('Find elements by ARIA role').option('--session <id>', 'Session ID').option('--name <name>', 'Filter by name')
+        .option('--client-id <id>', 'Client ID for session isolation (default: auto-generated from PID)')
         .action(async (role: string, options: any) => {
             try {
                 await withSession(options, async (ps, bp) => Output.success(await ps.findByRole(bp, role, options.name ? { name: options.name } : undefined)));
@@ -227,6 +270,7 @@ export function registerPageCommand(program: Command): void {
         });
 
     find.command('text <text>').description('Find elements by text content').option('--session <id>', 'Session ID')
+        .option('--client-id <id>', 'Client ID for session isolation (default: auto-generated from PID)')
         .action(async (text: string, options: any) => {
             try {
                 await withSession(options, async (ps, bp) => Output.success(await ps.findByText(bp, text)));
@@ -234,6 +278,7 @@ export function registerPageCommand(program: Command): void {
         });
 
     find.command('label <text>').description('Find elements by label').option('--session <id>', 'Session ID')
+        .option('--client-id <id>', 'Client ID for session isolation (default: auto-generated from PID)')
         .action(async (text: string, options: any) => {
             try {
                 await withSession(options, async (ps, bp) => Output.success(await ps.findByLabel(bp, text)));
@@ -241,10 +286,15 @@ export function registerPageCommand(program: Command): void {
         });
 
     // =================== Eval ===================
-    page.command('eval <script>').description('Execute JavaScript in page context').option('--session <id>', 'Session ID')
+    page.command('eval <script>').description('Execute JavaScript in page context (requires --allow-unsafe for sensitive APIs)')
+        .option('--session <id>', 'Session ID')
+        .option('--allow-unsafe', 'Allow scripts accessing cookies, storage, fetch, and other sensitive browser APIs')
+        .option('--client-id <id>', 'Client ID for session isolation (default: auto-generated from PID)')
         .action(async (script: string, options: any) => {
             try {
-                await withSession(options, async (ps, bp) => Output.success({ result: await ps.evaluate(bp, script) }));
+                await withSession(options, async (ps, bp) => Output.success({
+                    result: await ps.evaluate(bp, script, { allowUnsafe: options.allowUnsafe }),
+                }));
             } catch (err) { Output.error(err instanceof Error ? err.message : String(err)); process.exit(1); }
         });
 
@@ -253,6 +303,7 @@ export function registerPageCommand(program: Command): void {
     const networkService = new NetworkService();
 
     network.command('block <pattern>').description('Block requests matching URL pattern').option('--session <id>', 'Session ID')
+        .option('--client-id <id>', 'Client ID for session isolation (default: auto-generated from PID)')
         .action(async (pattern: string, options: any) => {
             try {
                 const sessionId = await resolveSessionId(options.session);
@@ -265,6 +316,7 @@ export function registerPageCommand(program: Command): void {
         });
 
     network.command('mock <url> <responseBody>').description('Mock URL with custom response').option('--session <id>', 'Session ID').option('--status <code>', 'HTTP status code', '200')
+        .option('--client-id <id>', 'Client ID for session isolation (default: auto-generated from PID)')
         .action(async (url: string, responseBody: string, options: any) => {
             try {
                 const sessionId = await resolveSessionId(options.session);
@@ -277,6 +329,7 @@ export function registerPageCommand(program: Command): void {
         });
 
     network.command('headers <json>').description('Set extra HTTP headers (JSON string)').option('--session <id>', 'Session ID')
+        .option('--client-id <id>', 'Client ID for session isolation (default: auto-generated from PID)')
         .action(async (json: string, options: any) => {
             try {
                 const sessionId = await resolveSessionId(options.session);
@@ -290,6 +343,7 @@ export function registerPageCommand(program: Command): void {
         });
 
     network.command('logs').description('Get network request logs').option('--session <id>', 'Session ID').option('--method <method>', 'Filter by HTTP method').option('--url <pattern>', 'Filter by URL pattern')
+        .option('--client-id <id>', 'Client ID for session isolation (default: auto-generated from PID)')
         .action(async (options: any) => {
             try {
                 const sessionId = await resolveSessionId(options.session);
