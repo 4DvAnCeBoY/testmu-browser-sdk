@@ -17,6 +17,8 @@ function createMockPuppeteerPage() {
             if (event === 'response') responseHandlers.push(handler);
             if (event === 'request') { /* mock request interception */ }
         },
+        once: (_event: string, _handler: (...args: unknown[]) => void) => { /* mock once */ },
+        removeListener: (_event: string, _handler: (...args: unknown[]) => void) => { /* mock removeListener */ },
         _blockedUrls: blockedUrls,
         _extraHeaders: extraHeaders,
         _responseHandlers: responseHandlers,

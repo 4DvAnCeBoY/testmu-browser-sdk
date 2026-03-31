@@ -107,10 +107,17 @@ export class ProfileService {
     }
 
     /**
+     * Sanitize profile ID to prevent path traversal
+     */
+    private sanitizeId(id: string): string {
+        return id.replace(/[^a-zA-Z0-9_.-]/g, '_');
+    }
+
+    /**
      * Get file path for a profile
      */
     private getProfilePath(id: string): string {
-        return path.join(this.getProfilesDir(), `${id}.json`);
+        return path.join(this.getProfilesDir(), `${this.sanitizeId(id)}.json`);
     }
 
     /**

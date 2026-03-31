@@ -1,6 +1,7 @@
 
 import { Builder, WebDriver, Capabilities } from 'selenium-webdriver';
 import { Session } from '../types.js';
+import { fetchDashboardUrl } from '../utils/lambdatest-api.js';
 
 const LT_HUB_URL = 'https://hub.lambdatest.com/wd/hub';
 
@@ -83,7 +84,7 @@ export class SeleniumAdapter {
         try {
             const seleniumSession = await driver.getSession();
             const testId = seleniumSession.getId();
-            await this.fetchDashboardUrl(session, username, accessKey, testId);
+            await fetchDashboardUrl(session, { testId, limit: 5 });
         } catch {
             // Best effort — don't fail the connection if we can't get the URL
         }
@@ -107,49 +108,6 @@ export class SeleniumAdapter {
         }
 
         return driver;
-    }
-
-    private async fetchDashboardUrl(session: Session, username: string, accessKey: string, testId: string): Promise<void> {
-        try {
-            const https = await import('https');
-            const auth = Buffer.from(`${username}:${accessKey}`).toString('base64');
-
-            const data: string = await new Promise((resolve, reject) => {
-                const req = https.request({
-                    hostname: 'api.lambdatest.com',
-                    path: '/automation/api/v1/sessions?limit=5',
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Basic ${auth}`,
-                        'Accept': 'application/json'
-                    }
-                }, (res) => {
-                    let body = '';
-                    res.on('data', (chunk: any) => body += chunk);
-                    res.on('end', () => resolve(body));
-                });
-                req.on('error', reject);
-                req.setTimeout(10000, () => { req.destroy(); reject(new Error('timeout')); });
-                req.end();
-            });
-
-            const json = JSON.parse(data);
-            if (json.data && json.data.length > 0) {
-                // Match by the known testID from the driver session
-                const match = json.data.find((s: any) => (s.test_id === testId || s.session_id === testId));
-                const entry = match || json.data[0];
-                const resolvedTestId = entry.test_id || entry.session_id || testId;
-                const buildId = entry.build_id;
-
-                if (buildId) {
-                    const url = `https://automation.lambdatest.com/test?build=${buildId}&testID=${resolvedTestId}`;
-                    session.sessionViewerUrl = url;
-                    console.log(`Selenium Adapter: LambdaTest Dashboard: ${url}`);
-                }
-            }
-        } catch {
-            // Best effort
-        }
     }
 
     private async loadProfile(profileId: string, driver: WebDriver): Promise<void> {

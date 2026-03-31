@@ -3,6 +3,7 @@ import { chromium, Browser, BrowserContext, Page } from 'playwright-core';
 import { ProfileService } from '../profile-service.js';
 import { Session, StealthConfig } from '../types.js';
 import { getRandomUserAgent, getRandomizedViewport } from '../stealth-utils.js';
+import { fetchDashboardUrl } from '../utils/lambdatest-api.js';
 
 export class PlaywrightAdapter {
     private profileService: ProfileService;
@@ -12,8 +13,12 @@ export class PlaywrightAdapter {
     }
 
     async connect(session: Session): Promise<{ browser: Browser, context: BrowserContext, page: Page }> {
-        console.log(`Playwright Adapter: Connecting to session ${session.id}...`);
-        console.log(`Playwright Adapter: WebSocket URL: ${session.websocketUrl.substring(0, 60)}...`);
+        console.error(`Playwright Adapter: Connecting to session ${session.id}...`);
+        try {
+            console.error(`Playwright Adapter: WebSocket host: ${new URL(session.websocketUrl).host}`);
+        } catch {
+            console.error('Playwright Adapter: WebSocket URL available');
+        }
 
         const stealthConfig = session.stealthConfig || session.config.stealthConfig;
 
@@ -40,7 +45,7 @@ export class PlaywrightAdapter {
 
         // Fetch LambdaTest dashboard URL (best effort, cloud sessions only)
         if (!session.config.local && !session.config.customWebSocketUrl) {
-            await this.fetchDashboardUrl(session);
+            await fetchDashboardUrl(session);
         }
 
         // Get or Create Context/Page
@@ -85,13 +90,25 @@ export class PlaywrightAdapter {
             });
             console.log('Playwright Adapter: Stealth scripts injected');
 
-            // Random user-agent
+            // Random user-agent — must be set at context creation for persistence across navigations.
+            // page.evaluate() modifications to navigator are wiped on navigation.
             if (stealthConfig.randomizeUserAgent !== false) {
                 const ua = session.userAgent || getRandomUserAgent();
-                await page.evaluate((uaStr) => {
-                    Object.defineProperty(navigator, 'userAgent', { get: () => uaStr });
-                }, ua);
-                console.log(`Playwright Adapter: Set stealth user-agent: ${ua.substring(0, 50)}...`);
+                if (browser.contexts().length === 0) {
+                    // Context was just created above — we can't retroactively set UA on existing context,
+                    // but addInitScript persists across navigations within the context.
+                    await context.addInitScript((uaStr: string) => {
+                        Object.defineProperty(navigator, 'userAgent', { get: () => uaStr });
+                    }, ua);
+                    console.error(`Playwright Adapter: Set stealth user-agent via initScript: ${ua.substring(0, 50)}...`);
+                } else {
+                    // Context already existed — addInitScript still works for future navigations,
+                    // but the current page won't reflect it until next navigation.
+                    await context.addInitScript((uaStr: string) => {
+                        Object.defineProperty(navigator, 'userAgent', { get: () => uaStr });
+                    }, ua);
+                    console.warn(`Playwright Adapter: UA override applied via initScript but won't take effect until next navigation (context already existed)`);
+                }
             }
 
             // Random viewport
@@ -128,50 +145,6 @@ export class PlaywrightAdapter {
         }
 
         return { browser, context, page };
-    }
-
-    private async fetchDashboardUrl(session: Session): Promise<void> {
-        const username = process.env.LT_USERNAME;
-        const accessKey = process.env.LT_ACCESS_KEY;
-        if (!username || !accessKey) return;
-
-        try {
-            const https = await import('https');
-            const auth = Buffer.from(`${username}:${accessKey}`).toString('base64');
-
-            const data: string = await new Promise((resolve, reject) => {
-                const req = https.request({
-                    hostname: 'api.lambdatest.com',
-                    path: '/automation/api/v1/sessions?limit=1',
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Basic ${auth}`,
-                        'Accept': 'application/json'
-                    }
-                }, (res) => {
-                    let body = '';
-                    res.on('data', (chunk: any) => body += chunk);
-                    res.on('end', () => resolve(body));
-                });
-                req.on('error', reject);
-                req.setTimeout(10000, () => { req.destroy(); reject(new Error('timeout')); });
-                req.end();
-            });
-
-            const json = JSON.parse(data);
-            if (json.data && json.data.length > 0) {
-                const entry = json.data[0];
-                const testId = entry.test_id || entry.session_id;
-                const buildId = entry.build_id;
-                if (testId && buildId) {
-                    const url = `https://automation.lambdatest.com/test?build=${buildId}&testID=${testId}`;
-                    session.sessionViewerUrl = url;
-                    console.log(`Playwright Adapter: LambdaTest Dashboard: ${url}`);
-                }
-            }
-        } catch {
-            // Best effort — don't fail the connection if we can't get the URL
-        }
     }
 
     /**

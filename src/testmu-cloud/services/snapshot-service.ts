@@ -1,4 +1,5 @@
 import { RefStore, RefMapping } from '../stores/ref-store';
+import { detectFramework } from '../utils/framework-detect';
 
 export interface SnapshotOptions {
     maxDepth?: number;
@@ -82,7 +83,15 @@ export class SnapshotService {
         // Phase A: Get accessibility tree from browser engine
         let rawTree: any;
         try {
-            rawTree = await page.accessibility.snapshot({ interestingOnly: false });
+            const framework = detectFramework(page);
+            if (framework === 'playwright') {
+                // Playwright's accessibility.snapshot() does not accept interestingOnly
+                // In Playwright >= 1.40 this API may be removed; catch gracefully
+                rawTree = await page.accessibility.snapshot();
+            } else {
+                // Puppeteer supports interestingOnly option
+                rawTree = await page.accessibility.snapshot({ interestingOnly: false });
+            }
         } catch {
             rawTree = { role: 'WebArea', name: title, children: [] };
         }
@@ -174,6 +183,11 @@ export class SnapshotService {
         this.previousSnapshots.set(sessionId, snapshotResult);
 
         return snapshotResult;
+    }
+
+    /** Clear cached snapshot data for a session to prevent memory leaks */
+    clearSession(sessionId: string): void {
+        this.previousSnapshots.delete(sessionId);
     }
 
     getPrevious(sessionId: string): SnapshotResult | null {

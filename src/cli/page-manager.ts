@@ -12,6 +12,11 @@ function sanitizeClientId(id: string): string {
     return id.replace(/[^a-zA-Z0-9_-]/g, '_');
 }
 
+/** Sanitize ID to prevent path traversal — allow only alphanumeric, hyphens, underscores, dots */
+function sanitizeId(id: string): string {
+    return id.replace(/[^a-zA-Z0-9_.-]/g, '_');
+}
+
 const SESSIONS_DIR = path.join(os.homedir(), '.testmuai', 'sessions');
 
 // Stable client ID for CLI — scopes ref and snapshot files to avoid cross-agent interference
@@ -51,7 +56,7 @@ export function createPageService(): { pageService: PageService, snapshotService
  * When clientId is provided, uses prev-snapshot.{clientId}.json for isolation.
  */
 export async function savePreviousSnapshot(sessionId: string, snapshot: any, clientId?: string): Promise<void> {
-    const dir = path.join(SESSIONS_DIR, sessionId);
+    const dir = path.join(SESSIONS_DIR, sanitizeId(sessionId));
     await fs.ensureDir(dir);
     const tmpPath = path.join(dir, `prev-snapshot.${process.pid}.tmp`);
     await fs.writeFile(tmpPath, JSON.stringify(snapshot), { mode: 0o600 });
@@ -83,7 +88,7 @@ function pageStateFileName(clientId?: string): string {
  * When clientId is provided, scoped to prevent cross-agent collisions.
  */
 export async function savePageState(sessionId: string, url: string, clientId?: string): Promise<void> {
-    const dir = path.join(SESSIONS_DIR, sessionId);
+    const dir = path.join(SESSIONS_DIR, sanitizeId(sessionId));
     await fs.ensureDir(dir);
     const fileName = pageStateFileName(clientId);
     const tmpPath = path.join(dir, `${fileName}.${process.pid}.tmp`);
@@ -157,7 +162,15 @@ export async function getSessionPage(sessionId: string, options?: GetSessionPage
         return {
             page,
             framework: 'playwright',
-            cleanup: async () => { await browser.close(); },
+            cleanup: async () => {
+                if (isLocal) {
+                    await browser.close();
+                } else {
+                    // For cloud sessions, do NOT call browser.close() — it kills the remote browser.
+                    // Just disconnect the local handle.
+                    browser.close = async () => {};
+                }
+            },
         };
     } else {
         const browser = await puppeteer.connect({ browserWSEndpoint: session.websocketUrl });

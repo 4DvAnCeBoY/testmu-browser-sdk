@@ -382,13 +382,14 @@ server.tool(
 
 server.tool(
     'browser_evaluate',
-    'Execute JavaScript in the page context. BLOCKED by default — requires allowUnsafe: true in server config. Security rationale: arbitrary JS execution can exfiltrate data, bypass auth, or corrupt page state. Only enable in trusted, sandboxed environments.',
+    'Execute JavaScript in the page context. BLOCKED by default — requires allowUnsafe: true. Security rationale: arbitrary JS execution can exfiltrate data, bypass auth, or corrupt page state. Only enable in trusted, sandboxed environments.',
     {
         script: z.string().describe('JavaScript code to execute'),
+        allowUnsafe: z.boolean().optional().describe('Set to true to allow arbitrary JS execution (default: false)'),
         sessionId: z.string().optional().describe('Session ID'),
     },
-    async ({ script, sessionId }) => {
-        const result = await withPage(sessionId, async (ps, page) => ps.evaluate(page, script));
+    async ({ script, allowUnsafe, sessionId }) => {
+        const result = await withPage(sessionId, async (ps, page) => ps.evaluate(page, script, { allowUnsafe: allowUnsafe || false }));
         return { content: [{ type: 'text', text: JSON.stringify({ result }) }] };
     }
 );

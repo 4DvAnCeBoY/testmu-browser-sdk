@@ -296,8 +296,17 @@ export class PageService {
 
     async isVisible(page: any, selector: string): Promise<boolean> {
         try {
+            const framework = detectFramework(page);
             const element = await this.resolveSelector(page, selector);
-            return await element.isVisible();
+            if (framework === 'playwright') {
+                return await element.isVisible();
+            } else {
+                // Puppeteer ElementHandle does not have .isVisible()
+                return await element.evaluate((el: any) => {
+                    const s = window.getComputedStyle(el);
+                    return s.display !== 'none' && s.visibility !== 'hidden' && parseFloat(s.opacity) !== 0;
+                });
+            }
         } catch {
             return false;
         }
@@ -407,13 +416,13 @@ export class PageService {
         }
 
         if (framework === 'playwright') {
-            return page.locator(selector);
+            return page.locator(selector).first();
         } else {
             if (selector.startsWith('//') || selector.startsWith('xpath/')) {
                 const xpath = selector.replace(/^xpath\//, '');
-                return page.waitForSelector(`::-p-xpath(${xpath})`, { timeout: 5000 });
+                return page.waitForSelector(`::-p-xpath(${xpath})`, { timeout: 15000 });
             }
-            return page.waitForSelector(selector, { timeout: 5000 });
+            return page.waitForSelector(selector, { timeout: 15000 });
         }
     }
 
@@ -425,7 +434,7 @@ export class PageService {
                     const locator = page.locator(mapping.css);
                     if (await locator.count() > 0) return locator.first();
                 } else {
-                    const el = await page.waitForSelector(mapping.css, { timeout: 2000 });
+                    const el = await page.waitForSelector(mapping.css, { timeout: 5000 });
                     if (el) return el;
                 }
             } catch { /* fall through */ }
@@ -438,7 +447,7 @@ export class PageService {
                     const locator = page.locator(`xpath=${mapping.xpath}`);
                     if (await locator.count() > 0) return locator.first();
                 } else {
-                    const el = await page.waitForSelector(`::-p-xpath(${mapping.xpath})`, { timeout: 2000 });
+                    const el = await page.waitForSelector(`::-p-xpath(${mapping.xpath})`, { timeout: 5000 });
                     if (el) return el;
                 }
             } catch { /* fall through */ }

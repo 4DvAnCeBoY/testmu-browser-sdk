@@ -122,16 +122,25 @@ export class ComputerService {
         const framework = detectFramework(page);
         if (framework === 'playwright') {
             // Try CDP Page.captureScreenshot first (more reliable on remote grids)
+            let cdpSession: any = null;
             try {
-                const cdpSession = await page.context().newCDPSession(page);
-                const result = await cdpSession.send('Page.captureScreenshot', {
-                    format: 'png',
-                    captureBeyondViewport: fullPage,
-                });
-                await cdpSession.detach();
+                cdpSession = await page.context().newCDPSession(page);
+                const cdpParams: any = { format: 'png' };
+                if (fullPage) {
+                    // captureBeyondViewport is not a real CDP parameter;
+                    // use Page.getLayoutMetrics + clip for full-page capture
+                    const metrics = await cdpSession.send('Page.getLayoutMetrics');
+                    const { width, height } = metrics.cssContentSize || metrics.contentSize;
+                    cdpParams.clip = { x: 0, y: 0, width, height, scale: 1 };
+                }
+                const result = await cdpSession.send('Page.captureScreenshot', cdpParams);
                 if (result.data) return result.data;
             } catch {
                 // CDP not available — fall through to standard API
+            } finally {
+                if (cdpSession) {
+                    try { await cdpSession.detach(); } catch { /* ignore detach errors */ }
+                }
             }
             const buf = await page.screenshot({ fullPage });
             return buf.toString('base64');
@@ -177,7 +186,13 @@ export class ComputerService {
     }
 
     /**
-     * Scroll the page — uses evaluate for broad version compatibility
+     * Scroll the page — uses evaluate for broad version compatibility.
+     *
+     * Note: Playwright uses mouse.wheel() which dispatches real wheel events (honors
+     * event listeners, smooth scroll, etc.). Puppeteer uses window.scrollBy() via evaluate
+     * because mouse.wheel() API changed across Puppeteer versions (v19+). The behavioral
+     * difference is intentional: mouse.wheel is more realistic but scrollBy is more reliable
+     * across Puppeteer versions.
      */
     async scroll(page: Page, deltaX: number, deltaY: number): Promise<void> {
         const framework = detectFramework(page);

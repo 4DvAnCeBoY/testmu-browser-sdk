@@ -12,6 +12,11 @@ function sanitizeClientId(clientId: string): string {
     return clientId.replace(/[^a-zA-Z0-9_-]/g, '_');
 }
 
+/** Sanitize ID to prevent path traversal — allow only alphanumeric, hyphens, underscores, dots */
+function sanitizeId(id: string): string {
+    return id.replace(/[^a-zA-Z0-9_.-]/g, '_');
+}
+
 export class DiskRefStore implements RefStore {
     private cache = new Map<string, CacheEntry>();
 
@@ -26,7 +31,7 @@ export class DiskRefStore implements RefStore {
     }
 
     async save(sessionId: string, refs: Map<string, RefMapping>, url: string, clientId?: string): Promise<void> {
-        const dir = path.join(this.baseDir, sessionId);
+        const dir = path.join(this.baseDir, sanitizeId(sessionId));
         await fs.ensureDir(dir);
         const data = JSON.stringify({
             version: 1,

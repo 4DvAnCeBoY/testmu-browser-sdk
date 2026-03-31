@@ -1,6 +1,5 @@
 import puppeteer, { Page, Browser } from 'puppeteer-core';
-import puppeteerExtra from 'puppeteer-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import puppeteerExtra from '../utils/puppeteer-extra.js';
 import {
     ScrapeParams,
     ScrapeResponse,
@@ -9,8 +8,6 @@ import {
     PdfParams,
     PdfResponse
 } from '../types.js';
-
-puppeteerExtra.use(StealthPlugin());
 
 /**
  * QuickActionsService - TestMu AI Browser Cloud-compatible Quick Actions

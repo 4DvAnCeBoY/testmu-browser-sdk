@@ -24,6 +24,9 @@ export class NetworkService {
             const client = await page.createCDPSession();
             const patterns = this.getActiveRoutes(sessionId);
             patterns.add(pattern);
+            // Note: Network.setBlockedURLs is deprecated in newer Chrome versions,
+            // but kept for backwards compatibility with older Puppeteer/Chrome combos.
+            // The Playwright path uses page.route() which is the modern equivalent.
             await client.send('Network.setBlockedURLs', { urls: Array.from(patterns) });
         }
         this.getActiveRoutes(sessionId).add(`block:${pattern}`);
@@ -81,7 +84,7 @@ export class NetworkService {
         const logs: NetworkRequest[] = [];
         this.requestLogs.set(sessionId, logs);
 
-        page.on('response', (response: any) => {
+        const responseListener = (response: any) => {
             logs.push({
                 url: response.url(),
                 method: response.request().method(),
@@ -89,7 +92,17 @@ export class NetworkService {
                 resourceType: response.request().resourceType(),
                 timestamp: Date.now(),
             });
-        });
+        };
+        page.on('response', responseListener);
+
+        // Clean up listener if page or browser closes to prevent leaks
+        const cleanup = () => {
+            try { page.removeListener('response', responseListener); } catch { /* already removed */ }
+        };
+        page.once('close', cleanup);
+        if (typeof page.browser === 'function') {
+            try { page.browser().once('disconnected', cleanup); } catch { /* ignore */ }
+        }
     }
 
     /**
@@ -111,6 +124,16 @@ export class NetworkService {
      */
     clearLogs(sessionId: string): void {
         this.requestLogs.delete(sessionId);
+    }
+
+    /**
+     * Clear all cached data for a session (logs, routes, mocks) to prevent memory leaks.
+     * Call this when a session is released.
+     */
+    clearSession(sessionId: string): void {
+        this.requestLogs.delete(sessionId);
+        this.activeRoutes.delete(sessionId);
+        this.mockResponses.delete(sessionId);
     }
 
     private getActiveRoutes(sessionId: string): Set<string> {

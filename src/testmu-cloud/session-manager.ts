@@ -45,7 +45,11 @@ export class SessionManager {
 
         if (config.customWebSocketUrl) {
             // Bring Your Own Browser (BYOB)
-            console.log(`Connecting to custom WebSocket URL: ${config.customWebSocketUrl}`);
+            try {
+                console.error(`Connecting to custom WebSocket at: ${new URL(config.customWebSocketUrl).host}`);
+            } catch {
+                console.error('Connecting to custom WebSocket URL');
+            }
             const session: Session = {
                 id: sessionId,
                 websocketUrl: config.customWebSocketUrl,
@@ -307,9 +311,20 @@ export class SessionManager {
             sessionViewerFullscreenUrl: session.sessionViewerUrl || session.debugUrl
         }];
 
+        // Strip credentials from WebSocket URL before exposing
+        let safeWsUrl = session.websocketUrl;
+        try {
+            const parsed = new URL(session.websocketUrl);
+            parsed.username = '';
+            parsed.password = '';
+            safeWsUrl = parsed.toString();
+        } catch {
+            // Not a valid URL — return as-is
+        }
+
         return {
             pages,
-            wsUrl: session.websocketUrl,
+            wsUrl: safeWsUrl,
             sessionViewerUrl: session.sessionViewerUrl || session.debugUrl,
             sessionViewerFullscreenUrl: session.sessionViewerUrl || session.debugUrl
         };

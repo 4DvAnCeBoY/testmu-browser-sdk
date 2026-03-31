@@ -171,7 +171,7 @@ export class CredentialService {
     private async saveCredentials(): Promise<void> {
         try {
             const data = Array.from(this.credentials.values());
-            await fs.writeJson(this.credentialsFile, data, { spaces: 2 });
+            await fs.writeJson(this.credentialsFile, data, { spaces: 2, mode: 0o600 });
         } catch (e) {
             console.error('[CredentialService] Error saving credentials:', e);
         }

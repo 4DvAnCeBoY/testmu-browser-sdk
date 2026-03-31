@@ -3,11 +3,16 @@ import { SessionStore } from './session-store';
 import fs from 'fs-extra';
 import path from 'path';
 
+/** Sanitize ID to prevent path traversal — allow only alphanumeric, hyphens, underscores, dots */
+function sanitizeId(id: string): string {
+    return id.replace(/[^a-zA-Z0-9_.-]/g, '_');
+}
+
 export class DiskSessionStore implements SessionStore {
     constructor(private baseDir: string) {}
 
     async save(session: Session): Promise<void> {
-        const dir = path.join(this.baseDir, session.id);
+        const dir = path.join(this.baseDir, sanitizeId(session.id));
         await fs.ensureDir(dir);
         const data = JSON.stringify(session, null, 2);
         // Atomic write: write to temp, then rename
@@ -17,7 +22,7 @@ export class DiskSessionStore implements SessionStore {
     }
 
     async get(id: string): Promise<Session | null> {
-        const filePath = path.join(this.baseDir, id, 'session.json');
+        const filePath = path.join(this.baseDir, sanitizeId(id), 'session.json');
         if (!await fs.pathExists(filePath)) return null;
         try {
             return await fs.readJson(filePath);
@@ -42,7 +47,7 @@ export class DiskSessionStore implements SessionStore {
     }
 
     async delete(id: string): Promise<void> {
-        const dir = path.join(this.baseDir, id);
+        const dir = path.join(this.baseDir, sanitizeId(id));
         await fs.remove(dir);
     }
 
