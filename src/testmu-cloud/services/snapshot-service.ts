@@ -135,15 +135,11 @@ export class SnapshotService {
                 result.ref = ref;
 
                 // Generate best CSS selector from available a11y info
-                let css = '';
                 const role = result.role;
                 const name = result.name;
-                if (name) {
-                    // Build an ARIA-based CSS selector that works in both Playwright and Puppeteer
-                    css = `[role="${role}"][aria-label="${name.replace(/"/g, '\\"')}"]`;
-                } else {
-                    css = `[role="${role}"]`;
-                }
+                const css = name
+                    ? `[role="${role}"][aria-label="${name.replace(/"/g, '\\"')}"]`
+                    : `[role="${role}"]`;
 
                 refMap.set(ref, {
                     xpath: '',
