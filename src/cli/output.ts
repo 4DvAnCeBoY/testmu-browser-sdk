@@ -18,17 +18,25 @@ export class Output {
    */
   private static redact(data: unknown): unknown {
     const str = JSON.stringify(data);
-    // Redact access keys in URLs (wss://user:KEY@host)
+    // Redact credentials in wss:// and ws:// URLs structurally (user:pass@host)
     const redacted = str.replace(
-      /(:)([A-Za-z0-9]{20,})(@)/g,
+      /(wss?:\/\/)([^@]+)(@)/g,
+      '$1****:****$3'
+    ).replace(
+      // Redact accessKey field values (any length)
+      /("accessKey"\s*:\s*")([^"]+)(")/g,
       '$1****$3'
     ).replace(
-      // Redact accessKey field values
-      /("accessKey"\s*:\s*")([^"]{8,})(")/g,
+      // Redact password field values (any length)
+      /("password"\s*:\s*")([^"]+)(")/g,
       '$1****$3'
     ).replace(
       // Redact access keys in URL-encoded JSON (%22accessKey%22%3A%22VALUE%22)
-      /(accessKey%22%3A%22)([^%"]{8,})(%22)/g,
+      /(accessKey%22%3A%22)([^%"]+)(%22)/g,
+      '$1****$3'
+    ).replace(
+      // Redact password in URL-encoded JSON
+      /(password%22%3A%22)([^%"]+)(%22)/g,
       '$1****$3'
     );
     return JSON.parse(redacted);

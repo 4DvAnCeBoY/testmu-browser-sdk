@@ -438,6 +438,8 @@ export class ExtensionService {
      */
     private async saveExtensionMetadata(extensionId: string, extension: Extension): Promise<void> {
         const metadataPath = path.join(this.getExtensionsDir(), extensionId, 'metadata.json');
-        await fs.writeJson(metadataPath, extension, { spaces: 2 });
+        const tmpPath = `${metadataPath}.${process.pid}.tmp`;
+        await fs.writeJson(tmpPath, extension, { spaces: 2 });
+        await fs.move(tmpPath, metadataPath, { overwrite: true });
     }
 }

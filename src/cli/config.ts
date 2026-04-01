@@ -43,8 +43,8 @@ export class ConfigManager {
   saveConfig(config: PluginConfig): void {
     const existing = this.loadConfig();
     const merged = { ...existing, ...config };
-    fs.ensureDirSync(this.configDir);
-    fs.writeJsonSync(this.configPath, merged, { spaces: 2 });
+    fs.ensureDirSync(this.configDir, { mode: 0o700 });
+    fs.writeJsonSync(this.configPath, merged, { spaces: 2, mode: 0o600 });
   }
 
   getConfigPath(): string {

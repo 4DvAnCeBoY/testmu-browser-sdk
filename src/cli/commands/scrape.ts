@@ -18,14 +18,22 @@ export async function executeScrape(
   if (creds.accessKey) process.env.LT_ACCESS_KEY = creds.accessKey;
 
   const browser = new Browser();
-  const result = await browser.scrape({
-    url,
-    format: options.format || 'markdown',
-    waitFor: options.waitFor,
-    delay: options.delay ? parseInt(options.delay, 10) : undefined,
-  });
+  try {
+    const result = await browser.scrape({
+      url,
+      format: options.format || 'markdown',
+      waitFor: options.waitFor,
+      delay: options.delay ? parseInt(options.delay, 10) : undefined,
+    });
 
-  return { success: true, data: result };
+    return { success: true, data: result };
+  } finally {
+    if (typeof (browser as any).close === 'function') {
+      await (browser as any).close();
+    } else if (typeof (browser as any).disconnect === 'function') {
+      await (browser as any).disconnect();
+    }
+  }
 }
 
 export function registerScrapeCommand(program: any): void {

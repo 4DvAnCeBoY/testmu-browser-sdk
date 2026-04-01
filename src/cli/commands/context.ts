@@ -45,7 +45,7 @@ export function registerContextCommand(program: any): void {
       try {
         const browser = getBrowser();
         const ctx = await fs.readJson(contextPath);
-        await browser.context.setContext(null, ctx);
+        await browser.context.setContext(sessionId, ctx);
         Output.success({ message: `Context applied to session ${sessionId}` });
       } catch (err) {
         Output.error(err instanceof Error ? err.message : String(err));
@@ -59,7 +59,7 @@ export function registerContextCommand(program: any): void {
     .action(async (sessionId: string) => {
       try {
         const browser = getBrowser();
-        await browser.context.clearContext(null);
+        await browser.context.clearContext(sessionId);
         Output.success({ message: `Context cleared for session ${sessionId}` });
       } catch (err) {
         Output.error(err instanceof Error ? err.message : String(err));

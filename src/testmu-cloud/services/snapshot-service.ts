@@ -133,11 +133,23 @@ export class SnapshotService {
                 refCounter++;
                 const ref = `@e${refCounter}`;
                 result.ref = ref;
+
+                // Generate best CSS selector from available a11y info
+                let css = '';
+                const role = result.role;
+                const name = result.name;
+                if (name) {
+                    // Build an ARIA-based CSS selector that works in both Playwright and Puppeteer
+                    css = `[role="${role}"][aria-label="${name.replace(/"/g, '\\"')}"]`;
+                } else {
+                    css = `[role="${role}"]`;
+                }
+
                 refMap.set(ref, {
                     xpath: '',
-                    css: '',
-                    role: result.role,
-                    name: result.name,
+                    css,
+                    role,
+                    name,
                 });
             }
 

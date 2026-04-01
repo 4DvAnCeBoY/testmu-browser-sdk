@@ -70,7 +70,7 @@ export async function savePreviousSnapshot(sessionId: string, snapshot: any, cli
  */
 export async function loadPreviousSnapshot(sessionId: string, clientId?: string): Promise<any | null> {
     const fileName = clientId ? `prev-snapshot.${sanitizeClientId(clientId)}.json` : 'prev-snapshot.json';
-    const filePath = path.join(SESSIONS_DIR, sessionId, fileName);
+    const filePath = path.join(SESSIONS_DIR, sanitizeId(sessionId), fileName);
     if (!await fs.pathExists(filePath)) return null;
     try {
         return await fs.readJson(filePath);
@@ -101,7 +101,7 @@ export async function savePageState(sessionId: string, url: string, clientId?: s
  * When clientId is provided, reads from client-scoped file.
  */
 async function loadPageState(sessionId: string, clientId?: string): Promise<string | null> {
-    const filePath = path.join(SESSIONS_DIR, sessionId, pageStateFileName(clientId));
+    const filePath = path.join(SESSIONS_DIR, sanitizeId(sessionId), pageStateFileName(clientId));
     if (!await fs.pathExists(filePath)) return null;
     try {
         const data = await fs.readJson(filePath);

@@ -75,4 +75,7 @@ registerEventsCommand(program);
 // Page Tools (agent-browser parity)
 registerPageCommand(program);
 
-program.parse(process.argv);
+program.parseAsync(process.argv).catch((err) => {
+  Output.error(err instanceof Error ? err.message : String(err));
+  process.exit(1);
+});

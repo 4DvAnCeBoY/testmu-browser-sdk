@@ -16,20 +16,28 @@ export async function executePdf(url: string, options: PdfOptions): Promise<void
   if (creds.accessKey) process.env.LT_ACCESS_KEY = creds.accessKey;
 
   const browser = new Browser();
-  const result = await browser.pdf({
-    url,
-    format: options.format || 'A4',
-    landscape: options.landscape,
-  });
+  try {
+    const result = await browser.pdf({
+      url,
+      format: options.format || 'A4',
+      landscape: options.landscape,
+    });
 
-  if (options.output) {
-    const data = 'data' in result ? result.data : result;
-    await fs.writeFile(options.output, data as Buffer);
-    Output.success({ message: `PDF saved to ${options.output}` });
-  } else {
-    const data = 'data' in result ? result.data : result;
-    const base64 = (data as Buffer).toString('base64');
-    Output.success({ format: options.format || 'A4', base64, size: (data as Buffer).length });
+    if (options.output) {
+      const data = 'data' in result ? result.data : result;
+      await fs.writeFile(options.output, data as Buffer);
+      Output.success({ message: `PDF saved to ${options.output}` });
+    } else {
+      const data = 'data' in result ? result.data : result;
+      const base64 = (data as Buffer).toString('base64');
+      Output.success({ format: options.format || 'A4', base64, size: (data as Buffer).length });
+    }
+  } finally {
+    if (typeof (browser as any).close === 'function') {
+      await (browser as any).close();
+    } else if (typeof (browser as any).disconnect === 'function') {
+      await (browser as any).disconnect();
+    }
   }
 }
 

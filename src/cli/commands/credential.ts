@@ -1,6 +1,7 @@
 import { Browser } from '../../testmu-cloud/index';
 import { Output } from '../output';
 import { ConfigManager } from '../config';
+import * as readline from 'readline';
 
 function getBrowser(): Browser {
   const config = new ConfigManager();
@@ -14,12 +15,29 @@ export function registerCredentialCommand(program: any): void {
   const credential = program.command('credential').description('Manage stored credentials');
 
   credential
-    .command('add <url> <username> <password>')
-    .description('Add a credential for a URL')
-    .action(async (url: string, username: string, password: string) => {
+    .command('add <url> <username> [password]')
+    .description('Add a credential for a URL (password prompted if omitted)')
+    .action(async (url: string, username: string, password?: string) => {
       try {
+        let pwd = password;
+        if (!pwd) {
+          pwd = await new Promise<string>((resolve, reject) => {
+            const rl = readline.createInterface({
+              input: process.stdin,
+              output: process.stderr,
+            });
+            rl.question('Password: ', (answer) => {
+              rl.close();
+              if (!answer) {
+                reject(new Error('Password is required'));
+              } else {
+                resolve(answer);
+              }
+            });
+          });
+        }
         const browser = getBrowser();
-        const result = await browser.credentials.create({ url, username, password });
+        const result = await browser.credentials.create({ url, username, password: pwd });
         Output.success(result);
       } catch (err) {
         Output.error(err instanceof Error ? err.message : String(err));

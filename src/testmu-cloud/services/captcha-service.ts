@@ -70,6 +70,18 @@ export class CaptchaService {
     }
 
     /**
+     * Clear all jobs for a session to prevent unbounded growth.
+     * Call this when a session is released.
+     */
+    clearSession(sessionId: string): void {
+        for (const key of this.jobs.keys()) {
+            if (key.includes(sessionId)) {
+                this.jobs.delete(key);
+            }
+        }
+    }
+
+    /**
      * Get status by job ID
      */
     async getJobStatus(jobId: string): Promise<CaptchaStatusResponse> {
@@ -141,7 +153,7 @@ export class CaptchaService {
         // TODO: Implement actual 2Captcha API calls
         // POST to https://2captcha.com/in.php
         // Poll https://2captcha.com/res.php
-        console.log('[CaptchaService] 2Captcha integration - implement API calls');
+        console.error('[CaptchaService] 2Captcha integration - implement API calls');
         throw new Error('2Captcha integration not yet implemented. Set CAPTCHA_API_KEY and implement API calls.');
     }
 
@@ -150,7 +162,7 @@ export class CaptchaService {
      */
     private async solveAntiCaptcha(params: CaptchaSolveParams): Promise<string> {
         // TODO: Implement actual Anti-Captcha API calls
-        console.log('[CaptchaService] Anti-Captcha integration - implement API calls');
+        console.error('[CaptchaService] Anti-Captcha integration - implement API calls');
         throw new Error('Anti-Captcha integration not yet implemented.');
     }
 
@@ -159,7 +171,7 @@ export class CaptchaService {
      */
     private async solveLambdaTest(params: CaptchaSolveParams): Promise<string> {
         // TODO: Implement TestMu AI's captcha solving API
-        console.log('[CaptchaService] TestMu AI captcha solving - implement API calls');
+        console.error('[CaptchaService] TestMu AI captcha solving - implement API calls');
         throw new Error('TestMu AI captcha integration not yet implemented.');
     }
 

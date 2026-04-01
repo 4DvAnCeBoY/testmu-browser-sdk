@@ -18,11 +18,11 @@ export class TunnelService {
 
     async start(config: TunnelConfig): Promise<void> {
         if (this.getStatus()) {
-            console.log('Tunnel is already running.');
+            console.error('Tunnel is already running.');
             return;
         }
 
-        console.log('Starting LambdaTest Tunnel...');
+        console.error('Starting LambdaTest Tunnel...');
         this.tunnelInstance = new Tunnel();
 
         // Convert config to Tunnel Arguments
@@ -54,7 +54,7 @@ export class TunnelService {
                     console.error('Failed to start tunnel:', error);
                     reject(error);
                 } else {
-                    console.log('Tunnel Started Successfully!');
+                    console.error('Tunnel Started Successfully!');
                     resolve();
                 }
             });
@@ -66,10 +66,10 @@ export class TunnelService {
             return;
         }
 
-        console.log('Stopping LambdaTest Tunnel...');
+        console.error('Stopping LambdaTest Tunnel...');
         return new Promise((resolve) => {
             this.tunnelInstance?.stop(() => {
-                console.log('Tunnel Stopped.');
+                console.error('Tunnel Stopped.');
                 this.tunnelInstance = null;
                 resolve();
             });

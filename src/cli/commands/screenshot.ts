@@ -20,25 +20,33 @@ export async function executeScreenshot(
   if (creds.accessKey) process.env.LT_ACCESS_KEY = creds.accessKey;
 
   const browser = new Browser();
-  const result = await browser.screenshot({
-    url,
-    fullPage: options.fullPage ?? false,
-    format: options.format || 'png',
-    quality: options.quality ? parseInt(options.quality, 10) : undefined,
-  });
-
-  if (options.output) {
-    const data = 'data' in result ? result.data : result;
-    await fs.writeFile(options.output, data as Buffer);
-    Output.success({ message: `Screenshot saved to ${options.output}` });
-  } else {
-    const data = 'data' in result ? result.data : result;
-    const base64 = (data as Buffer).toString('base64');
-    Output.success({
+  try {
+    const result = await browser.screenshot({
+      url,
+      fullPage: options.fullPage ?? false,
       format: options.format || 'png',
-      base64,
-      size: (data as Buffer).length,
+      quality: options.quality ? parseInt(options.quality, 10) : undefined,
     });
+
+    if (options.output) {
+      const data = 'data' in result ? result.data : result;
+      await fs.writeFile(options.output, data as Buffer);
+      Output.success({ message: `Screenshot saved to ${options.output}` });
+    } else {
+      const data = 'data' in result ? result.data : result;
+      const base64 = (data as Buffer).toString('base64');
+      Output.success({
+        format: options.format || 'png',
+        base64,
+        size: (data as Buffer).length,
+      });
+    }
+  } finally {
+    if (typeof (browser as any).close === 'function') {
+      await (browser as any).close();
+    } else if (typeof (browser as any).disconnect === 'function') {
+      await (browser as any).disconnect();
+    }
   }
 }
 

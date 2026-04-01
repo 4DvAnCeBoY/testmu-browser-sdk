@@ -235,7 +235,9 @@ export class ProfileService {
             }
         }
 
-        await fs.writeJson(filePath, profile, { spaces: 2 });
+        const tmpPath = `${filePath}.${process.pid}.tmp`;
+        await fs.writeJson(tmpPath, profile, { spaces: 2 });
+        await fs.move(tmpPath, filePath, { overwrite: true });
         this.log(`Saved profile '${id}' (${profile.cookies.length} cookies)`);
 
         return profile;
@@ -266,7 +268,9 @@ export class ProfileService {
             updatedAt: now
         };
 
-        await fs.writeJson(filePath, profile, { spaces: 2 });
+        const tmpPath = `${filePath}.${process.pid}.tmp`;
+        await fs.writeJson(tmpPath, profile, { spaces: 2 });
+        await fs.move(tmpPath, filePath, { overwrite: true });
         this.log(`Created empty profile '${id}'`);
 
         return profile;
@@ -368,7 +372,10 @@ export class ProfileService {
             updatedAt: now
         };
 
-        await fs.writeJson(this.getProfilePath(targetId), duplicate, { spaces: 2 });
+        const dupPath = this.getProfilePath(targetId);
+        const dupTmpPath = `${dupPath}.${process.pid}.tmp`;
+        await fs.writeJson(dupTmpPath, duplicate, { spaces: 2 });
+        await fs.move(dupTmpPath, dupPath, { overwrite: true });
         this.log(`Duplicated profile '${sourceId}' to '${targetId}'`);
 
         return duplicate;
@@ -404,7 +411,10 @@ export class ProfileService {
         }
 
         profile.updatedAt = new Date().toISOString();
-        await fs.writeJson(this.getProfilePath(profile.id), profile, { spaces: 2 });
+        const importPath = this.getProfilePath(profile.id);
+        const importTmpPath = `${importPath}.${process.pid}.tmp`;
+        await fs.writeJson(importTmpPath, profile, { spaces: 2 });
+        await fs.move(importTmpPath, importPath, { overwrite: true });
         this.log(`Imported profile '${profile.id}'`);
 
         return profile;

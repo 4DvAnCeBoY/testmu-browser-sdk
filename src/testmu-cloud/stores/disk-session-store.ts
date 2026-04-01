@@ -14,7 +14,29 @@ export class DiskSessionStore implements SessionStore {
     async save(session: Session): Promise<void> {
         const dir = path.join(this.baseDir, sanitizeId(session.id));
         await fs.ensureDir(dir);
-        const data = JSON.stringify(session, null, 2);
+
+        // Deep clone to avoid mutating the original session object
+        const sanitized = JSON.parse(JSON.stringify(session)) as Session;
+
+        // Strip credentials from websocketUrl
+        if (sanitized.websocketUrl) {
+            try {
+                const parsed = new URL(sanitized.websocketUrl);
+                parsed.username = '';
+                parsed.password = '';
+                sanitized.websocketUrl = parsed.toString();
+            } catch {
+                // If URL parsing fails, leave as-is
+            }
+        }
+
+        // Strip credentials from LT:Options in config
+        if (sanitized.config?.lambdatestOptions?.['LT:Options']) {
+            delete sanitized.config.lambdatestOptions['LT:Options'].username;
+            delete sanitized.config.lambdatestOptions['LT:Options'].accessKey;
+        }
+
+        const data = JSON.stringify(sanitized, null, 2);
         // Atomic write: write to temp, then rename
         const tmpPath = path.join(dir, `session.${process.pid}.tmp`);
         await fs.writeFile(tmpPath, data, { mode: 0o600 });

@@ -123,6 +123,14 @@ export class Browser {
         // Pass services to SessionManager for automatic handling
         this.sessionManager.setTunnelService(this.tunnel);
         this.sessionManager.setExtensionService(this.extensions);
+
+        // Wire service cleanup on session release to prevent memory leaks
+        this.sessionManager.onRelease((sessionId: string) => {
+            this.network.clearSession(sessionId);
+            this.snapshotService.clearSession(sessionId);
+            this.captcha.clearSession(sessionId);
+            refStore.clear(sessionId);
+        });
     }
 
     // ================== Quick Action Aliases (TestMu AI Browser Cloud SDK style) ==================

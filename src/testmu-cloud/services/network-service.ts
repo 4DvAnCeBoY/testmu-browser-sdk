@@ -12,6 +12,8 @@ export class NetworkService {
     private requestLogs = new Map<string, NetworkRequest[]>();
     private activeRoutes = new Map<string, Set<string>>();
     private mockResponses = new Map<string, Map<string, { status?: number, body?: string, contentType?: string }>>();
+    private interceptedPages = new WeakSet<object>();
+    private cdpSessions = new Map<string, any[]>();
 
     /**
      * Block requests matching a URL pattern
@@ -22,6 +24,10 @@ export class NetworkService {
             await page.route(pattern, (route: any) => route.abort());
         } else {
             const client = await page.createCDPSession();
+            if (!this.cdpSessions.has(sessionId)) {
+                this.cdpSessions.set(sessionId, []);
+            }
+            this.cdpSessions.get(sessionId)!.push(client);
             const patterns = this.getActiveRoutes(sessionId);
             patterns.add(pattern);
             // Note: Network.setBlockedURLs is deprecated in newer Chrome versions,
@@ -45,9 +51,7 @@ export class NetworkService {
             }));
         } else {
             // Maintain a URL-to-response map and a single interception handler
-            const routes = this.getActiveRoutes(sessionId);
-            const mockKey = `mock:${url}`;
-            if (!routes.has('puppeteer:interception')) {
+            if (!this.interceptedPages.has(page)) {
                 await page.setRequestInterception(true);
                 page.on('request', (req: any) => {
                     const sessionMocks = this.getMockResponses(sessionId);
@@ -63,7 +67,7 @@ export class NetworkService {
                         req.continue();
                     }
                 });
-                routes.add('puppeteer:interception');
+                this.interceptedPages.add(page);
             }
             this.getMockResponses(sessionId).set(url, response);
         }
@@ -134,6 +138,14 @@ export class NetworkService {
         this.requestLogs.delete(sessionId);
         this.activeRoutes.delete(sessionId);
         this.mockResponses.delete(sessionId);
+        // Detach any CDP sessions created for this session
+        const clients = this.cdpSessions.get(sessionId);
+        if (clients) {
+            for (const client of clients) {
+                try { client.detach(); } catch { /* already detached */ }
+            }
+            this.cdpSessions.delete(sessionId);
+        }
     }
 
     private getActiveRoutes(sessionId: string): Set<string> {

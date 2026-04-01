@@ -33,10 +33,16 @@ export class LocalBrowserService {
 
     private fetchVersion(port: number): Promise<any> {
         return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                req.destroy();
+                reject(new Error(`Timeout fetching Chrome DevTools version from port ${port} (10s)`));
+            }, 10000);
+
             const req = http.get(`http://127.0.0.1:${port}/json/version`, (res) => {
                 let data = '';
                 res.on('data', (chunk) => data += chunk);
                 res.on('end', () => {
+                    clearTimeout(timeout);
                     try {
                         resolve(JSON.parse(data));
                     } catch (e) {
@@ -44,7 +50,10 @@ export class LocalBrowserService {
                     }
                 });
             });
-            req.on('error', reject);
+            req.on('error', (err) => {
+                clearTimeout(timeout);
+                reject(err);
+            });
             req.end();
         });
     }

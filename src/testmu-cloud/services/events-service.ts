@@ -83,6 +83,7 @@ export class EventsService {
      */
     stopRecording(sessionId: string): SessionEvent[] {
         const events = this.getEvents(sessionId);
+        this.sessionEvents.delete(sessionId);
         console.error(`[EventsService] Stopped recording for session ${sessionId}, captured ${events.length} events`);
         return events;
     }

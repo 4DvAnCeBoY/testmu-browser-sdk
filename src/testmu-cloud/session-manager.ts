@@ -1,4 +1,5 @@
 
+import crypto from 'crypto';
 import { Browser } from 'puppeteer-core';
 import {
     SessionConfig,
@@ -17,9 +18,19 @@ export class SessionManager {
     private tunnelService: TunnelService | null = null;
     private extensionService: ExtensionService | null = null;
     private eventsService: EventsService;
+    private managedTunnelName: string | null = null;
+    private onReleaseHooks: Array<(sessionId: string) => void> = [];
 
     constructor() {
         this.eventsService = new EventsService();
+    }
+
+    /**
+     * Register a callback invoked when a session is released.
+     * Used by Browser to wire service-level cleanup (network, snapshot, captcha, etc.).
+     */
+    onRelease(hook: (sessionId: string) => void): void {
+        this.onReleaseHooks.push(hook);
     }
 
     setTunnelService(service: TunnelService) {
@@ -32,8 +43,7 @@ export class SessionManager {
 
     async createSession(config: SessionConfig): Promise<Session> {
         // Generate unique session ID with timestamp + random suffix
-        const randomSuffix = Math.random().toString(36).substring(2, 8);
-        const sessionId = config.sessionId || `session_${Date.now()}_${randomSuffix}`;
+        const sessionId = config.sessionId || `session_${crypto.randomUUID()}`;
         const createdAt = new Date().toISOString();
 
         // Auto-pick a random user-agent if stealth is configured and no explicit UA is set
@@ -139,15 +149,15 @@ export class SessionManager {
                 if (config.tunnelName) {
                     ltOptions.tunnelName = config.tunnelName;
                 } else if (this.tunnelService) {
-                    const managedName = `browser-cloud_Managed_${Date.now()}`;
                     if (!this.tunnelService.getStatus()) {
+                        this.managedTunnelName = `browser-cloud_Managed_${Date.now()}`;
                         await this.tunnelService.start({
                             user: username,
                             key: accessKey,
-                            tunnelName: managedName
+                            tunnelName: this.managedTunnelName
                         });
                     }
-                    ltOptions.tunnelName = managedName;
+                    ltOptions.tunnelName = this.managedTunnelName;
                 } else {
                     console.warn("Tunnel requested but TunnelService not initialized.");
                 }
@@ -235,8 +245,13 @@ export class SessionManager {
         if (entry) {
             console.error(`Closing session ${id}`);
 
-            // Stop recording
+            // Stop recording and clean up events
             this.eventsService.stopRecording(id);
+
+            // Notify release hooks (service cleanup)
+            for (const hook of this.onReleaseHooks) {
+                try { hook(id); } catch { /* ignore cleanup errors */ }
+            }
 
             // Update session status
             entry.session.status = 'released';

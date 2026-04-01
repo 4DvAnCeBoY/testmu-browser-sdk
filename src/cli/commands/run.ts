@@ -293,8 +293,8 @@ export async function executeRun(scriptPath: string, options: RunOptions): Promi
     const hubUrl = buildHubUrl(creds.username, creds.accessKey);
 
     const preloadContent = generatePreloadScript(detectedAdapter, wsEndpoint, hubUrl);
-    preloadPath = path.join(os.tmpdir(), `testmu-preload-${Date.now()}.js`);
-    fs.writeFileSync(preloadPath, preloadContent);
+    preloadPath = path.join(os.tmpdir(), `testmu-preload-${Date.now()}-${process.pid}.js`);
+    fs.writeFileSync(preloadPath, preloadContent, { mode: 0o600 });
 
     process.stderr.write(`[TestMu Cloud] Detected ${detectedAdapter} script — patching to use LambdaTest cloud\n`);
     process.stderr.write(`[TestMu Cloud] Platform: ${options.platformName || 'Windows 10'} | Browser: ${options.browserName || 'Chrome'} ${options.browserVersion || 'latest'}\n`);
@@ -302,7 +302,7 @@ export async function executeRun(scriptPath: string, options: RunOptions): Promi
     runnerArgs = [...runnerBaseArgs, '--require', preloadPath, absolutePath];
   }
 
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const child = spawn(runnerCmd, runnerArgs, {
       env,
       stdio: ['inherit', 'pipe', 'pipe'],
@@ -311,6 +311,7 @@ export async function executeRun(scriptPath: string, options: RunOptions): Promi
 
     let stdout = '';
     let stderr = '';
+    let settled = false;
 
     child.stdout.on('data', (data: Buffer) => {
       stdout += data.toString();
@@ -323,6 +324,9 @@ export async function executeRun(scriptPath: string, options: RunOptions): Promi
     });
 
     child.on('close', (code: number | null) => {
+      if (settled) return;
+      settled = true;
+
       // Clean up preload file
       if (preloadPath && fs.existsSync(preloadPath)) {
         fs.removeSync(preloadPath);
@@ -338,6 +342,9 @@ export async function executeRun(scriptPath: string, options: RunOptions): Promi
     });
 
     child.on('error', (err: Error) => {
+      if (settled) return;
+      settled = true;
+
       if (preloadPath && fs.existsSync(preloadPath)) {
         fs.removeSync(preloadPath);
       }
@@ -346,7 +353,7 @@ export async function executeRun(scriptPath: string, options: RunOptions): Promi
       } else {
         Output.error(err.message);
       }
-      process.exit(1);
+      reject(err);
     });
   });
 }

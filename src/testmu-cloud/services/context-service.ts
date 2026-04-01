@@ -289,7 +289,15 @@ export class ContextService {
 
     /**
      * Flatten storage object: { origin: data } → data
-     * Takes the first origin's data (since we only operate on current origin)
+     * Takes the first origin's data (since we only operate on current origin).
+     *
+     * LIMITATION: When the storage map contains multiple origins, only the first
+     * origin's key-value pairs are returned; all other origins are silently
+     * discarded. This is acceptable because browser storage APIs (localStorage,
+     * sessionStorage) are scoped to the current page origin, and setContext()
+     * can only inject into the single origin the page is currently on.
+     * Callers needing multi-origin restore must navigate to each origin and
+     * call setLocalStorage / setSessionStorage individually.
      */
     private flattenStorage(storage: Record<string, Record<string, string>>): Record<string, string> {
         const values = Object.values(storage);

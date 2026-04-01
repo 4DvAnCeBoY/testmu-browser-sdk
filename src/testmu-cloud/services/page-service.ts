@@ -281,11 +281,25 @@ export class PageService {
     }
 
     async getCount(page: any, selector: string): Promise<number> {
+        // Resolve @ref selectors to their CSS selector before counting
+        let resolvedSelector = selector;
+        if (selector.startsWith('@e')) {
+            const sessionId = this.getSessionId(page);
+            const mapping = await this.refStore.get(sessionId, selector, this.clientId);
+            if (!mapping) {
+                throw new Error(`Unknown ref "${selector}". Run 'page snapshot' first to capture element refs.`);
+            }
+            if (!mapping.css) {
+                throw new Error(`Ref "${selector}" has no CSS selector. Cannot count elements.`);
+            }
+            resolvedSelector = mapping.css;
+        }
+
         const framework = detectFramework(page);
         if (framework === 'playwright') {
-            return await page.locator(selector).count();
+            return await page.locator(resolvedSelector).count();
         } else {
-            const elements = await page.$$(selector);
+            const elements = await page.$$(resolvedSelector);
             return elements.length;
         }
     }

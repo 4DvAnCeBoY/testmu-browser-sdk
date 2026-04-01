@@ -59,10 +59,18 @@ export class QuickActionsService {
             headless: true,
             executablePath: chromePath
         });
-        const page = await browser.newPage();
+
+        let page: Page;
+        try {
+            page = await browser.newPage() as unknown as Page;
+        } catch (err) {
+            // Avoid leaking the browser if newPage() fails
+            await browser.close().catch(() => {});
+            throw err;
+        }
 
         return {
-            page: page as unknown as Page,
+            page,
             cleanup: async () => {
                 await browser.close();
             }

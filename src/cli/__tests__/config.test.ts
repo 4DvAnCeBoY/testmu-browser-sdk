@@ -77,11 +77,11 @@ describe('ConfigManager', () => {
       const config = new ConfigManager();
       config.saveConfig({ username: 'test', accessKey: 'key123' });
 
-      expect(fs.ensureDirSync).toHaveBeenCalledWith(mockConfigDir);
+      expect(fs.ensureDirSync).toHaveBeenCalledWith(mockConfigDir, { mode: 0o700 });
       expect(fs.writeJsonSync).toHaveBeenCalledWith(
         mockConfigPath,
         expect.objectContaining({ username: 'test', accessKey: 'key123' }),
-        { spaces: 2 }
+        { spaces: 2, mode: 0o600 }
       );
     });
   });

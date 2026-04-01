@@ -53,7 +53,7 @@ export class DiskRefStore implements RefStore {
     }
 
     async load(sessionId: string, clientId?: string): Promise<{ refs: Map<string, RefMapping>, url: string } | null> {
-        const filePath = path.join(this.baseDir, sessionId, this.refsFileName(clientId));
+        const filePath = path.join(this.baseDir, sanitizeId(sessionId), this.refsFileName(clientId));
         if (!await fs.pathExists(filePath)) return null;
 
         try {
@@ -83,7 +83,7 @@ export class DiskRefStore implements RefStore {
     }
 
     async clear(sessionId: string, clientId?: string): Promise<void> {
-        const refsPath = path.join(this.baseDir, sessionId, this.refsFileName(clientId));
+        const refsPath = path.join(this.baseDir, sanitizeId(sessionId), this.refsFileName(clientId));
         await fs.remove(refsPath);
         this.cache.delete(this.cacheKey(sessionId, clientId));
     }

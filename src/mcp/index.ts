@@ -3,7 +3,9 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { getSessionPage, createPageService, resolveSessionId, getSessionStore } from '../cli/page-manager';
+import { getSessionPage, getRefStore, resolveSessionId, getSessionStore } from '../cli/page-manager';
+import { PageService } from '../testmu-cloud/services/page-service';
+import { SnapshotService } from '../testmu-cloud/services/snapshot-service';
 import { NetworkService } from '../testmu-cloud/services/network-service';
 
 const server = new McpServer({
@@ -13,11 +15,39 @@ const server = new McpServer({
 
 const networkService = new NetworkService();
 
+/** Strip credentials from any websocket URLs in session objects (defense-in-depth) */
+function redactSessionUrls<T>(sessions: T): T {
+    const str = JSON.stringify(sessions);
+    const redacted = str.replace(
+        /(wss?:\/\/)([^@]+)(@)/g,
+        '$1***$3'
+    );
+    return JSON.parse(redacted);
+}
+
+// FIX 3: Wrap tool handlers with error handling — returns structured MCP error instead of raw stack traces
+function safeHandler<TArgs>(
+    handler: (args: TArgs) => Promise<{ content: { type: 'text'; text: string }[] }>
+): (args: TArgs) => Promise<{ content: { type: 'text'; text: string }[]; isError?: true }> {
+    return async (args: TArgs) => {
+        try {
+            return await handler(args);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            return { content: [{ type: 'text' as const, text: JSON.stringify({ error: message }) }], isError: true as const };
+        }
+    };
+}
+
 // Helper: run a page command with session lifecycle
-async function withPage<T>(sessionId: string | undefined, fn: (ps: any, page: any, sid: string) => Promise<T>, clientId?: string): Promise<T> {
+// FIX 1: Creates a fresh PageService per call to avoid singleton race conditions with clientId
+async function withPage<T>(sessionId: string | undefined, fn: (ps: PageService, page: any, sid: string) => Promise<T>, clientId?: string): Promise<T> {
     const sid = await resolveSessionId(sessionId);
     const { page, cleanup } = await getSessionPage(sid);
-    const { pageService } = createPageService();
+    // Create a fresh PageService per call to avoid race conditions with clientId
+    const refStore = getRefStore();
+    const snapshotService = new SnapshotService(refStore);
+    const pageService = new PageService(snapshotService, refStore);
     pageService.bind(page, sid);
     if (clientId) {
         pageService.setClientId(clientId);
@@ -31,15 +61,18 @@ async function withPage<T>(sessionId: string | undefined, fn: (ps: any, page: an
 
 // =================== Session Tools ===================
 
+// FIX 6: Removed dummy _unused parameter — empty schema object
 server.tool(
     'session_list',
     'List all active browser sessions',
-    { _unused: z.string().optional().describe('Not used') },
-    async () => {
+    {},
+    safeHandler(async () => {
         const store = getSessionStore();
         const sessions = await store.list();
-        return { content: [{ type: 'text', text: JSON.stringify(sessions, null, 2) }] };
-    }
+        // FIX 4: Strip credentials from websocketUrl as defense-in-depth
+        const safeSessions = redactSessionUrls(sessions);
+        return { content: [{ type: 'text' as const, text: JSON.stringify(safeSessions, null, 2) }] };
+    })
 );
 
 // =================== Snapshot Tools ===================
@@ -53,15 +86,15 @@ server.tool(
         maxElements: z.number().optional().describe('Max refs to assign (default: 500)'),
         clientId: z.string().optional().describe('Client ID for parallel isolation; scopes @ref state to this client'),
     },
-    async ({ sessionId, compact, maxElements, clientId }) => {
+    safeHandler(async ({ sessionId, compact, maxElements, clientId }) => {
         const result = await withPage(sessionId, async (ps, page) => {
             return ps.snapshot(page, { compact: compact || false, maxElements });
         }, clientId);
         if (compact && result.compactText) {
-            return { content: [{ type: 'text', text: result.compactText }] };
+            return { content: [{ type: 'text' as const, text: result.compactText }] };
         }
-        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
-    }
+        return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+    })
 );
 
 server.tool(
@@ -72,15 +105,15 @@ server.tool(
         compact: z.boolean().optional().describe('Token-efficient text output'),
         clientId: z.string().optional().describe('Client ID for parallel isolation; must match the clientId used in browser_snapshot'),
     },
-    async ({ sessionId, compact, clientId }) => {
+    safeHandler(async ({ sessionId, compact, clientId }) => {
         const result = await withPage(sessionId, async (ps, page) => {
             return ps.snapshotDiff(page, { compact: compact || false });
         }, clientId);
         if (compact && result.compactText) {
-            return { content: [{ type: 'text', text: result.compactText }] };
+            return { content: [{ type: 'text' as const, text: result.compactText }] };
         }
-        return { content: [{ type: 'text', text: JSON.stringify(result.diff, null, 2) }] };
-    }
+        return { content: [{ type: 'text' as const, text: JSON.stringify(result.diff, null, 2) }] };
+    })
 );
 
 // =================== Navigation Tools ===================
@@ -92,40 +125,40 @@ server.tool(
         url: z.string().describe('URL to navigate to'),
         sessionId: z.string().optional().describe('Session ID'),
     },
-    async ({ url, sessionId }) => {
+    safeHandler(async ({ url, sessionId }) => {
         const result = await withPage(sessionId, async (ps, page) => ps.navigate(page, url));
-        return { content: [{ type: 'text', text: JSON.stringify(result) }] };
-    }
+        return { content: [{ type: 'text' as const, text: JSON.stringify(result) }] };
+    })
 );
 
 server.tool(
     'browser_go_back',
     'Navigate back in browser history',
     { sessionId: z.string().optional().describe('Session ID') },
-    async ({ sessionId }) => {
+    safeHandler(async ({ sessionId }) => {
         const result = await withPage(sessionId, async (ps, page) => ps.back(page));
-        return { content: [{ type: 'text', text: JSON.stringify(result) }] };
-    }
+        return { content: [{ type: 'text' as const, text: JSON.stringify(result) }] };
+    })
 );
 
 server.tool(
     'browser_go_forward',
     'Navigate forward in browser history',
     { sessionId: z.string().optional().describe('Session ID') },
-    async ({ sessionId }) => {
+    safeHandler(async ({ sessionId }) => {
         const result = await withPage(sessionId, async (ps, page) => ps.forward(page));
-        return { content: [{ type: 'text', text: JSON.stringify(result) }] };
-    }
+        return { content: [{ type: 'text' as const, text: JSON.stringify(result) }] };
+    })
 );
 
 server.tool(
     'browser_reload',
     'Reload the current page',
     { sessionId: z.string().optional().describe('Session ID') },
-    async ({ sessionId }) => {
+    safeHandler(async ({ sessionId }) => {
         const result = await withPage(sessionId, async (ps, page) => ps.reload(page));
-        return { content: [{ type: 'text', text: JSON.stringify(result) }] };
-    }
+        return { content: [{ type: 'text' as const, text: JSON.stringify(result) }] };
+    })
 );
 
 // =================== Interaction Tools ===================
@@ -138,10 +171,10 @@ server.tool(
         sessionId: z.string().optional().describe('Session ID'),
         clientId: z.string().optional().describe('Client ID for parallel isolation'),
     },
-    async ({ selector, sessionId, clientId }) => {
+    safeHandler(async ({ selector, sessionId, clientId }) => {
         await withPage(sessionId, async (ps, page) => ps.click(page, selector), clientId);
-        return { content: [{ type: 'text', text: JSON.stringify({ clicked: selector }) }] };
-    }
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ clicked: selector }) }] };
+    })
 );
 
 server.tool(
@@ -153,10 +186,10 @@ server.tool(
         sessionId: z.string().optional().describe('Session ID'),
         clientId: z.string().optional().describe('Client ID for parallel isolation'),
     },
-    async ({ selector, value, sessionId, clientId }) => {
+    safeHandler(async ({ selector, value, sessionId, clientId }) => {
         await withPage(sessionId, async (ps, page) => ps.fill(page, selector, value), clientId);
-        return { content: [{ type: 'text', text: JSON.stringify({ filled: selector, value }) }] };
-    }
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ filled: selector, value }) }] };
+    })
 );
 
 server.tool(
@@ -168,10 +201,10 @@ server.tool(
         sessionId: z.string().optional().describe('Session ID'),
         clientId: z.string().optional().describe('Client ID for parallel isolation'),
     },
-    async ({ selector, text, sessionId, clientId }) => {
+    safeHandler(async ({ selector, text, sessionId, clientId }) => {
         await withPage(sessionId, async (ps, page) => ps.type(page, selector, text), clientId);
-        return { content: [{ type: 'text', text: JSON.stringify({ typed: selector, text }) }] };
-    }
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ typed: selector, text }) }] };
+    })
 );
 
 server.tool(
@@ -183,10 +216,10 @@ server.tool(
         sessionId: z.string().optional().describe('Session ID'),
         clientId: z.string().optional().describe('Client ID for parallel isolation'),
     },
-    async ({ selector, values, sessionId, clientId }) => {
+    safeHandler(async ({ selector, values, sessionId, clientId }) => {
         await withPage(sessionId, async (ps, page) => ps.select(page, selector, ...values), clientId);
-        return { content: [{ type: 'text', text: JSON.stringify({ selected: selector, values }) }] };
-    }
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ selected: selector, values }) }] };
+    })
 );
 
 server.tool(
@@ -196,10 +229,10 @@ server.tool(
         selector: z.string().describe('Element @ref or CSS selector'),
         sessionId: z.string().optional().describe('Session ID'),
     },
-    async ({ selector, sessionId }) => {
+    safeHandler(async ({ selector, sessionId }) => {
         await withPage(sessionId, async (ps, page) => ps.check(page, selector));
-        return { content: [{ type: 'text', text: JSON.stringify({ checked: selector }) }] };
-    }
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ checked: selector }) }] };
+    })
 );
 
 server.tool(
@@ -209,10 +242,10 @@ server.tool(
         selector: z.string().describe('Element @ref or CSS selector'),
         sessionId: z.string().optional().describe('Session ID'),
     },
-    async ({ selector, sessionId }) => {
+    safeHandler(async ({ selector, sessionId }) => {
         await withPage(sessionId, async (ps, page) => ps.hover(page, selector));
-        return { content: [{ type: 'text', text: JSON.stringify({ hovered: selector }) }] };
-    }
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ hovered: selector }) }] };
+    })
 );
 
 server.tool(
@@ -222,10 +255,10 @@ server.tool(
         key: z.string().describe('Key name (e.g. Enter, Tab, Escape, ArrowDown)'),
         sessionId: z.string().optional().describe('Session ID'),
     },
-    async ({ key, sessionId }) => {
+    safeHandler(async ({ key, sessionId }) => {
         await withPage(sessionId, async (ps, page) => ps.press(page, key));
-        return { content: [{ type: 'text', text: JSON.stringify({ pressed: key }) }] };
-    }
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ pressed: key }) }] };
+    })
 );
 
 server.tool(
@@ -238,10 +271,10 @@ server.tool(
         sessionId: z.string().optional().describe('Session ID'),
         clientId: z.string().optional().describe('Client ID for parallel isolation'),
     },
-    async ({ direction, amount, selector, sessionId, clientId }) => {
+    safeHandler(async ({ direction, amount, selector, sessionId, clientId }) => {
         await withPage(sessionId, async (ps, page) => ps.scroll(page, { direction, amount, selector }), clientId);
-        return { content: [{ type: 'text', text: JSON.stringify({ scrolled: direction || 'down', amount: amount || 300 }) }] };
-    }
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ scrolled: direction || 'down', amount: amount || 300 }) }] };
+    })
 );
 
 // =================== Query Tools ===================
@@ -253,10 +286,10 @@ server.tool(
         selector: z.string().describe('Element @ref or CSS selector'),
         sessionId: z.string().optional().describe('Session ID'),
     },
-    async ({ selector, sessionId }) => {
+    safeHandler(async ({ selector, sessionId }) => {
         const text = await withPage(sessionId, async (ps, page) => ps.getText(page, selector));
-        return { content: [{ type: 'text', text: JSON.stringify({ text }) }] };
-    }
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ text }) }] };
+    })
 );
 
 server.tool(
@@ -266,30 +299,30 @@ server.tool(
         selector: z.string().describe('Element @ref or CSS selector'),
         sessionId: z.string().optional().describe('Session ID'),
     },
-    async ({ selector, sessionId }) => {
+    safeHandler(async ({ selector, sessionId }) => {
         const value = await withPage(sessionId, async (ps, page) => ps.getValue(page, selector));
-        return { content: [{ type: 'text', text: JSON.stringify({ value }) }] };
-    }
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ value }) }] };
+    })
 );
 
 server.tool(
     'browser_get_url',
     'Get current page URL',
     { sessionId: z.string().optional().describe('Session ID') },
-    async ({ sessionId }) => {
+    safeHandler(async ({ sessionId }) => {
         const url = await withPage(sessionId, async (ps, page) => ps.getUrl(page));
-        return { content: [{ type: 'text', text: JSON.stringify({ url }) }] };
-    }
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ url }) }] };
+    })
 );
 
 server.tool(
     'browser_get_title',
     'Get current page title',
     { sessionId: z.string().optional().describe('Session ID') },
-    async ({ sessionId }) => {
+    safeHandler(async ({ sessionId }) => {
         const title = await withPage(sessionId, async (ps, page) => ps.getTitle(page));
-        return { content: [{ type: 'text', text: JSON.stringify({ title }) }] };
-    }
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ title }) }] };
+    })
 );
 
 // =================== State Check Tools ===================
@@ -301,10 +334,10 @@ server.tool(
         selector: z.string().describe('Element @ref or CSS selector'),
         sessionId: z.string().optional().describe('Session ID'),
     },
-    async ({ selector, sessionId }) => {
+    safeHandler(async ({ selector, sessionId }) => {
         const visible = await withPage(sessionId, async (ps, page) => ps.isVisible(page, selector));
-        return { content: [{ type: 'text', text: JSON.stringify({ visible }) }] };
-    }
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ visible }) }] };
+    })
 );
 
 server.tool(
@@ -314,10 +347,10 @@ server.tool(
         selector: z.string().describe('Element @ref or CSS selector'),
         sessionId: z.string().optional().describe('Session ID'),
     },
-    async ({ selector, sessionId }) => {
+    safeHandler(async ({ selector, sessionId }) => {
         const enabled = await withPage(sessionId, async (ps, page) => ps.isEnabled(page, selector));
-        return { content: [{ type: 'text', text: JSON.stringify({ enabled }) }] };
-    }
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ enabled }) }] };
+    })
 );
 
 // =================== Find Tools ===================
@@ -331,10 +364,10 @@ server.tool(
         sessionId: z.string().optional().describe('Session ID'),
         clientId: z.string().optional().describe('Client ID for parallel isolation'),
     },
-    async ({ role, name, sessionId, clientId }) => {
+    safeHandler(async ({ role, name, sessionId, clientId }) => {
         const results = await withPage(sessionId, async (ps, page) => ps.findByRole(page, role, name ? { name } : undefined), clientId);
-        return { content: [{ type: 'text', text: JSON.stringify(results, null, 2) }] };
-    }
+        return { content: [{ type: 'text' as const, text: JSON.stringify(results, null, 2) }] };
+    })
 );
 
 server.tool(
@@ -345,10 +378,10 @@ server.tool(
         sessionId: z.string().optional().describe('Session ID'),
         clientId: z.string().optional().describe('Client ID for parallel isolation'),
     },
-    async ({ text, sessionId, clientId }) => {
+    safeHandler(async ({ text, sessionId, clientId }) => {
         const results = await withPage(sessionId, async (ps, page) => ps.findByText(page, text), clientId);
-        return { content: [{ type: 'text', text: JSON.stringify(results, null, 2) }] };
-    }
+        return { content: [{ type: 'text' as const, text: JSON.stringify(results, null, 2) }] };
+    })
 );
 
 // =================== Wait Tool ===================
@@ -363,19 +396,20 @@ server.tool(
         sessionId: z.string().optional().describe('Session ID'),
         clientId: z.string().optional().describe('Client ID for parallel isolation'),
     },
-    async ({ selector, ms, timeout, sessionId, clientId }) => {
+    safeHandler(async ({ selector, ms, timeout, sessionId, clientId }) => {
         if (ms !== undefined) {
             await new Promise(resolve => setTimeout(resolve, ms));
-            return { content: [{ type: 'text', text: JSON.stringify({ waited: ms }) }] };
+            return { content: [{ type: 'text' as const, text: JSON.stringify({ waited: ms }) }] };
         }
         if (!selector) {
-            return { content: [{ type: 'text', text: JSON.stringify({ error: 'Provide selector or ms' }) }] };
+            return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Provide selector or ms' }) }] };
         }
+        // FIX 2: Use pageService.wait() to resolve @ref selectors instead of raw page.waitForSelector()
         await withPage(sessionId, async (ps, page) => {
-            await page.waitForSelector(selector, { timeout: timeout || 30000 });
+            await ps.wait(page, selector);
         }, clientId);
-        return { content: [{ type: 'text', text: JSON.stringify({ found: selector }) }] };
-    }
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ found: selector }) }] };
+    })
 );
 
 // =================== Evaluate Tool ===================
@@ -388,13 +422,14 @@ server.tool(
         allowUnsafe: z.boolean().optional().describe('Set to true to allow arbitrary JS execution (default: false)'),
         sessionId: z.string().optional().describe('Session ID'),
     },
-    async ({ script, allowUnsafe, sessionId }) => {
+    safeHandler(async ({ script, allowUnsafe, sessionId }) => {
         const result = await withPage(sessionId, async (ps, page) => ps.evaluate(page, script, { allowUnsafe: allowUnsafe || false }));
-        return { content: [{ type: 'text', text: JSON.stringify({ result }) }] };
-    }
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ result }) }] };
+    })
 );
 
 // =================== Network Tools ===================
+// FIX 5: Refactored to use withPage for consistency and error handling
 
 server.tool(
     'browser_network_block',
@@ -403,16 +438,12 @@ server.tool(
         pattern: z.string().describe('URL pattern to block (e.g. *.ads.com/*)'),
         sessionId: z.string().optional().describe('Session ID'),
     },
-    async ({ pattern, sessionId }) => {
-        const sid = await resolveSessionId(sessionId);
-        const { page, cleanup } = await getSessionPage(sid);
-        try {
+    safeHandler(async ({ pattern, sessionId }) => {
+        await withPage(sessionId, async (_ps, page, sid) => {
             await networkService.block(page, sid, pattern);
-            return { content: [{ type: 'text', text: JSON.stringify({ blocked: pattern }) }] };
-        } finally {
-            await cleanup();
-        }
-    }
+        });
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ blocked: pattern }) }] };
+    })
 );
 
 server.tool(
@@ -424,16 +455,12 @@ server.tool(
         status: z.number().optional().describe('HTTP status code (default: 200)'),
         sessionId: z.string().optional().describe('Session ID'),
     },
-    async ({ url, body, status, sessionId }) => {
-        const sid = await resolveSessionId(sessionId);
-        const { page, cleanup } = await getSessionPage(sid);
-        try {
+    safeHandler(async ({ url, body, status, sessionId }) => {
+        await withPage(sessionId, async (_ps, page, sid) => {
             await networkService.mock(page, sid, url, { status: status || 200, body });
-            return { content: [{ type: 'text', text: JSON.stringify({ mocked: url }) }] };
-        } finally {
-            await cleanup();
-        }
-    }
+        });
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ mocked: url }) }] };
+    })
 );
 
 server.tool(
@@ -443,16 +470,12 @@ server.tool(
         headers: z.record(z.string(), z.string()).describe('Headers as key-value pairs'),
         sessionId: z.string().optional().describe('Session ID'),
     },
-    async ({ headers, sessionId }) => {
-        const sid = await resolveSessionId(sessionId);
-        const { page, cleanup } = await getSessionPage(sid);
-        try {
+    safeHandler(async ({ headers, sessionId }) => {
+        await withPage(sessionId, async (_ps, page) => {
             await networkService.setHeaders(page, headers);
-            return { content: [{ type: 'text', text: JSON.stringify({ headers: Object.keys(headers) }) }] };
-        } finally {
-            await cleanup();
-        }
-    }
+        });
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ headers: Object.keys(headers) }) }] };
+    })
 );
 
 // =================== Start Server ===================
