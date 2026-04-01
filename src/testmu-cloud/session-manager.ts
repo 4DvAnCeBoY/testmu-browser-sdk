@@ -80,7 +80,10 @@ export class SessionManager {
             console.error("Launching local browser (auto-discovery)...");
 
             const localService = new LocalBrowserService();
-            const { websocketUrl, kill } = await localService.launch();
+            const { websocketUrl, kill, pid, profileDir } = await localService.launch();
+
+            // Persist Chrome PID so a separate CLI process can kill it on session release
+            await LocalBrowserService.savePidFile(sessionId, pid, profileDir);
 
             const session: Session = {
                 id: sessionId,
@@ -262,6 +265,9 @@ export class SessionManager {
                 await entry.browser.close();
             }
             SessionStore.delete(id);
+
+            // Kill local Chrome process if this was a local session (cross-process cleanup)
+            await LocalBrowserService.killFromPidFile(id);
 
             return { success: true, message: `Session ${id} released` };
         }
