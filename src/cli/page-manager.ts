@@ -163,13 +163,11 @@ export async function getSessionPage(sessionId: string, options?: GetSessionPage
             page,
             framework: 'playwright',
             cleanup: async () => {
-                if (isLocal) {
-                    await browser.close();
-                } else {
-                    // For cloud sessions, do NOT call browser.close() — it kills the remote browser.
-                    // Just disconnect the local handle.
-                    browser.close = async () => {};
-                }
+                // For both local and cloud: browser.close() is safe.
+                // Playwright's connect() sets _shouldCloseConnectionOnClose = true,
+                // so close() severs the local WebSocket transport without killing
+                // the remote browser process.
+                await browser.close().catch(() => {});
             },
         };
     } else {

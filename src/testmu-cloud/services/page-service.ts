@@ -62,23 +62,26 @@ export class PageService {
 
     // =================== Navigation ===================
 
-    async navigate(page: any, url: string, options?: { waitUntil?: string }): Promise<{ url: string, title: string }> {
-        await page.goto(url, options?.waitUntil ? { waitUntil: options.waitUntil } : undefined);
+    async navigate(page: any, url: string, options?: { waitUntil?: string; timeout?: number }): Promise<{ url: string, title: string }> {
+        const timeout = options?.timeout ?? 30000;
+        const gotoOpts: Record<string, any> = { timeout };
+        if (options?.waitUntil) gotoOpts.waitUntil = options.waitUntil;
+        await page.goto(url, gotoOpts);
         return { url: typeof page.url === 'function' ? page.url() : url, title: await page.title() };
     }
 
-    async back(page: any): Promise<{ url: string, title: string }> {
-        await page.goBack();
+    async back(page: any, options?: { timeout?: number }): Promise<{ url: string, title: string }> {
+        await page.goBack({ timeout: options?.timeout ?? 30000 });
         return { url: typeof page.url === 'function' ? page.url() : '', title: await page.title() };
     }
 
-    async forward(page: any): Promise<{ url: string, title: string }> {
-        await page.goForward();
+    async forward(page: any, options?: { timeout?: number }): Promise<{ url: string, title: string }> {
+        await page.goForward({ timeout: options?.timeout ?? 30000 });
         return { url: typeof page.url === 'function' ? page.url() : '', title: await page.title() };
     }
 
-    async reload(page: any): Promise<{ url: string, title: string }> {
-        await page.reload();
+    async reload(page: any, options?: { timeout?: number }): Promise<{ url: string, title: string }> {
+        await page.reload({ timeout: options?.timeout ?? 30000 });
         return { url: typeof page.url === 'function' ? page.url() : '', title: await page.title() };
     }
 

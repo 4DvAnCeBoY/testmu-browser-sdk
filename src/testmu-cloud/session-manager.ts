@@ -40,7 +40,7 @@ export class SessionManager {
         let resolvedUserAgent = config.userAgent;
         if (config.stealthConfig && config.stealthConfig.randomizeUserAgent !== false && !config.userAgent) {
             resolvedUserAgent = getRandomUserAgent();
-            console.log(`SessionManager: Auto-selected stealth user-agent: ${resolvedUserAgent.substring(0, 50)}...`);
+            console.error(`SessionManager: Auto-selected stealth user-agent: ${resolvedUserAgent.substring(0, 50)}...`);
         }
 
         if (config.customWebSocketUrl) {
@@ -67,7 +67,7 @@ export class SessionManager {
 
         if (config.local) {
             // Launch local browser using chrome-launcher (Auto-discovery)
-            console.log("Launching local browser (auto-discovery)...");
+            console.error("Launching local browser (auto-discovery)...");
 
             const localService = new LocalBrowserService();
             const { websocketUrl, kill } = await localService.launch();
@@ -180,7 +180,7 @@ export class SessionManager {
                     // Merge with any existing lambda:loadExtension URLs
                     const existing = ltOptions['lambda:loadExtension'] || [];
                     ltOptions['lambda:loadExtension'] = [...existing, ...cloudUrls];
-                    console.log(`Loading ${cloudUrls.length} extension(s) into session`);
+                    console.error(`Loading ${cloudUrls.length} extension(s) into session`);
                 }
             }
 
@@ -233,7 +233,7 @@ export class SessionManager {
     async releaseSession(id: string): Promise<ReleaseResponse> {
         const entry = SessionStore.get(id);
         if (entry) {
-            console.log(`Closing session ${id}`);
+            console.error(`Closing session ${id}`);
 
             // Stop recording
             this.eventsService.stopRecording(id);

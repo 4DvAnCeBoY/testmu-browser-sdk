@@ -39,7 +39,7 @@ export class ContextService {
                 indexedDB: {}
             };
         } catch (error) {
-            console.error('[ContextService] Error extracting context:', error);
+            if (process.env.TESTMU_VERBOSE_CONTEXT) console.error('[ContextService] Error extracting context:', error);
             return {
                 cookies: [],
                 localStorage: {},
@@ -68,7 +68,7 @@ export class ContextService {
                 return cookies.map((c: any) => this.normalizeCookie(c));
             }
         } catch (error) {
-            console.error('[ContextService] Error getting cookies:', error);
+            if (process.env.TESTMU_VERBOSE_CONTEXT) console.error('[ContextService] Error getting cookies:', error);
             return [];
         }
     }
@@ -145,7 +145,7 @@ export class ContextService {
                 }
             }
         } catch (error) {
-            console.error('[ContextService] Error setting context:', error);
+            if (process.env.TESTMU_VERBOSE_CONTEXT) console.error('[ContextService] Error setting context:', error);
             throw error;
         }
     }
@@ -189,7 +189,7 @@ export class ContextService {
                 await page.setCookie(...puppeteerCookies);
             }
         } catch (error) {
-            console.error('[ContextService] Error setting cookies:', error);
+            if (process.env.TESTMU_VERBOSE_CONTEXT) console.error('[ContextService] Error setting cookies:', error);
             throw error;
         }
     }
@@ -231,7 +231,7 @@ export class ContextService {
             await this.clearCookies(page);
             await this.clearStorage(page);
         } catch (error) {
-            console.error('[ContextService] Error clearing context:', error);
+            if (process.env.TESTMU_VERBOSE_CONTEXT) console.error('[ContextService] Error clearing context:', error);
         }
     }
 
@@ -251,7 +251,7 @@ export class ContextService {
                 await client.send('Network.clearBrowserCookies');
             }
         } catch (error) {
-            console.error('[ContextService] Error clearing cookies:', error);
+            if (process.env.TESTMU_VERBOSE_CONTEXT) console.error('[ContextService] Error clearing cookies:', error);
         }
     }
 

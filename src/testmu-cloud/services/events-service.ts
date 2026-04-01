@@ -75,7 +75,7 @@ export class EventsService {
             timestamp: Date.now()
         });
 
-        console.log(`[EventsService] Started recording for session ${sessionId}`);
+        console.error(`[EventsService] Started recording for session ${sessionId}`);
     }
 
     /**
@@ -83,7 +83,7 @@ export class EventsService {
      */
     stopRecording(sessionId: string): SessionEvent[] {
         const events = this.getEvents(sessionId);
-        console.log(`[EventsService] Stopped recording for session ${sessionId}, captured ${events.length} events`);
+        console.error(`[EventsService] Stopped recording for session ${sessionId}, captured ${events.length} events`);
         return events;
     }
 

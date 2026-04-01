@@ -97,22 +97,37 @@ export async function executeSessionCreate(options: SessionCreateOptions): Promi
   return session;
 }
 
-export function executeSessionList(): Session[] {
-  const browser = getBrowser();
-  return browser.sessions.list();
+export async function executeSessionList(): Promise<Session[]> {
+  // Read from disk store for cross-process visibility (bug #1 fix)
+  const store = getSessionStore();
+  return store.list();
 }
 
-export function executeSessionInfo(id: string): Session | undefined {
-  const browser = getBrowser();
-  return browser.sessions.retrieve(id);
+export async function executeSessionInfo(id: string): Promise<Session | null> {
+  // Read from disk store for cross-process visibility (bug #2 fix)
+  const store = getSessionStore();
+  return store.get(id);
 }
 
 export async function executeSessionRelease(id: string): Promise<ReleaseResponse> {
+  const store = getSessionStore();
+  const diskSession = await store.get(id);
+
+  // Try in-memory SDK release first (same-process case)
   const browser = getBrowser();
   const result = await browser.sessions.release(id);
-  // Clean up disk persistence
-  const store = getSessionStore();
+
+  // Always clean up disk persistence
   await store.delete(id);
+
+  // Bug #6 fix: normalize response — if SDK says success but nested payload
+  // says "not found", use the disk session existence to determine truth.
+  if (result.success === false && diskSession) {
+    return { success: true, message: `Session ${id} released (cross-process cleanup)` };
+  }
+  if (!result.success && !diskSession) {
+    return { success: false, message: `Session ${id} not found` };
+  }
   return result;
 }
 
@@ -161,9 +176,9 @@ export function registerSessionCommand(program: any): void {
   session
     .command('list')
     .description('List all active sessions')
-    .action(() => {
+    .action(async () => {
       try {
-        const sessions = executeSessionList();
+        const sessions = await executeSessionList();
         Output.success(sessions);
       } catch (err) {
         Output.error(err instanceof Error ? err.message : String(err));
@@ -174,9 +189,9 @@ export function registerSessionCommand(program: any): void {
   session
     .command('info <id>')
     .description('Get details of a specific session')
-    .action((id: string) => {
+    .action(async (id: string) => {
       try {
-        const session = executeSessionInfo(id);
+        const session = await executeSessionInfo(id);
         if (session) {
           Output.success(session);
         } else {
