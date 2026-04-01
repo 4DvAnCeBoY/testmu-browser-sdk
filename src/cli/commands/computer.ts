@@ -25,6 +25,11 @@ async function executeComputerAction(
   const browser = new Browser();
   const { page, cleanup } = await getSessionPage(options.session, { clientId: DEFAULT_CLIENT_ID });
 
+  if (!page) {
+    Output.error('No page available. The browser session may have disconnected.');
+    process.exit(1);
+  }
+
   let result: any;
   try {
     result = await browser.sessions.computer(options.session, page, {

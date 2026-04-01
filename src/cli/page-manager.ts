@@ -3,6 +3,7 @@ import { DiskSessionStore } from '../testmu-cloud/stores/disk-session-store';
 import { DiskRefStore } from '../testmu-cloud/stores/disk-ref-store';
 import { PageService } from '../testmu-cloud/services/page-service';
 import { SnapshotService } from '../testmu-cloud/services/snapshot-service';
+import { ConfigManager } from './config';
 import path from 'path';
 import os from 'os';
 import fs from 'fs-extra';
@@ -139,9 +140,21 @@ export async function getSessionPage(sessionId: string, options?: GetSessionPage
     if (adapter === 'playwright') {
         const { chromium } = await import('playwright-core');
         const isLocal = (session as any).config?.local === true;
+        let wsUrl = session.websocketUrl;
+        // Reconstruct credentials for cloud sessions (stripped during disk save)
+        if (wsUrl.startsWith('wss://') && !new URL(wsUrl).username) {
+            const config = new ConfigManager();
+            const creds = config.getCredentials();
+            if (creds.username && creds.accessKey) {
+                const parsed = new URL(wsUrl);
+                parsed.username = creds.username;
+                parsed.password = creds.accessKey;
+                wsUrl = parsed.toString();
+            }
+        }
         const browser = isLocal
-            ? await chromium.connectOverCDP(session.websocketUrl)
-            : await chromium.connect(session.websocketUrl);
+            ? await chromium.connectOverCDP(wsUrl)
+            : await chromium.connect(wsUrl);
         const contexts = browser.contexts();
         const context = contexts[0] || await browser.newContext();
         const pages = context.pages();

@@ -109,10 +109,20 @@ function buildHubUrl(username: string, accessKey: string): string {
 }
 
 function generatePreloadScript(adapter: string, wsEndpoint: string, hubUrl: string): string {
+  // Compute the plugin's node_modules path at generation time so the preload
+  // can resolve automation packages even when run from a user's project dir.
+  const pluginNodeModules = path.resolve(__dirname, '../../node_modules');
+
+  const moduleResolutionPreamble = `
+// Ensure the plugin's node_modules is on the module search path
+require('module').globalPaths.unshift(${JSON.stringify(pluginNodeModules)});
+`;
+
   if (adapter === 'puppeteer') {
     return `
 // TestMu Browser Cloud — Puppeteer preload
-// Intercepts module loading to patch launch() → connect() at require time
+// Intercepts module loading to patch launch()/connect() at require time
+${moduleResolutionPreamble}
 (function() {
   const WS_ENDPOINT = ${JSON.stringify(wsEndpoint)};
   const Module = require('module');
@@ -131,6 +141,16 @@ function generatePreloadScript(adapter: string, wsEndpoint: string, hubUrl: stri
           target.launch = async function(options) {
             console.error('[TestMu Cloud] Redirecting ' + label + '.launch() to LambdaTest cloud...');
             return target.connect({ browserWSEndpoint: WS_ENDPOINT });
+          };
+          const originalConnect = target.connect;
+          target.connect = async function(options) {
+            console.error('[TestMu Cloud] Redirecting ' + label + '.connect() to LambdaTest cloud...');
+            if (typeof options === 'object') {
+              options.browserWSEndpoint = WS_ENDPOINT;
+            } else {
+              options = { browserWSEndpoint: WS_ENDPOINT };
+            }
+            return originalConnect.call(this, options);
           };
         }
       }
@@ -151,7 +171,8 @@ function generatePreloadScript(adapter: string, wsEndpoint: string, hubUrl: stri
   if (adapter === 'playwright') {
     return `
 // TestMu Browser Cloud — Playwright preload
-// Intercepts module loading to patch launch() → connect() at require time
+// Intercepts module loading to patch launch()/connect() at require time
+${moduleResolutionPreamble}
 (function() {
   const WS_ENDPOINT = ${JSON.stringify(wsEndpoint)};
   const Module = require('module');
@@ -174,6 +195,11 @@ function generatePreloadScript(adapter: string, wsEndpoint: string, hubUrl: stri
             bt.launch = async function(options) {
               console.error('[TestMu Cloud] Redirecting ' + name + '.launch() to LambdaTest cloud...');
               return bt.connect(WS_ENDPOINT);
+            };
+            const originalConnect = bt.connect;
+            bt.connect = async function(wsEndpointOrOptions) {
+              console.error('[TestMu Cloud] Redirecting ' + name + '.connect() to LambdaTest cloud...');
+              return originalConnect.call(this, WS_ENDPOINT);
             };
             if (bt.launchPersistentContext) {
               bt.launchPersistentContext = async function(userDataDir, options) {
@@ -201,6 +227,7 @@ function generatePreloadScript(adapter: string, wsEndpoint: string, hubUrl: stri
     return `
 // TestMu Browser Cloud — Selenium preload
 // Intercepts module loading to patch Builder.build() to use LambdaTest hub
+${moduleResolutionPreamble}
 (function() {
   const HUB_URL = ${JSON.stringify(hubUrl)};
   const Module = require('module');

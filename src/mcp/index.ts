@@ -3,6 +3,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
+import pkg from '../../package.json';
 import { getSessionPage, getRefStore, resolveSessionId, getSessionStore } from '../cli/page-manager';
 import { PageService } from '../testmu-cloud/services/page-service';
 import { SnapshotService } from '../testmu-cloud/services/snapshot-service';
@@ -10,7 +11,7 @@ import { NetworkService } from '../testmu-cloud/services/network-service';
 
 const server = new McpServer({
     name: 'browser-cloud',
-    version: '1.0.0',
+    version: pkg.version,
 });
 
 const networkService = new NetworkService();
