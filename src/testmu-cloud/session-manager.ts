@@ -80,16 +80,17 @@ export class SessionManager {
             console.error("Launching local browser (auto-discovery)...");
 
             const localService = new LocalBrowserService();
-            const { websocketUrl, kill, pid, profileDir } = await localService.launch();
+            const { websocketUrl, port, kill, pid, profileDir } = await localService.launch();
 
             // Persist Chrome PID so a separate CLI process can kill it on session release
             await LocalBrowserService.savePidFile(sessionId, pid, profileDir);
 
+            const debugUrl = `http://localhost:${port}`;
             const session: Session = {
                 id: sessionId,
                 websocketUrl: websocketUrl,
-                debugUrl: "http://localhost:9222",
-                sessionViewerUrl: "http://localhost:9222",
+                debugUrl,
+                sessionViewerUrl: debugUrl,
                 config,
                 status: 'live',
                 createdAt,

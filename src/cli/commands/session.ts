@@ -117,7 +117,11 @@ export async function executeSessionRelease(id: string): Promise<ReleaseResponse
   const browser = getBrowser();
   const result = await browser.sessions.release(id);
 
-  // Always clean up disk persistence
+  // Kill local Chrome process BEFORE deleting disk session (cross-process cleanup)
+  const { LocalBrowserService } = await import('../../testmu-cloud/services/local-browser-service');
+  await LocalBrowserService.killFromPidFile(id);
+
+  // Now clean up disk persistence
   await store.delete(id);
 
   // Bug #6 fix: normalize response — if SDK says success but nested payload
@@ -134,7 +138,15 @@ export async function executeSessionRelease(id: string): Promise<ReleaseResponse
 export async function executeSessionReleaseAll(): Promise<ReleaseResponse> {
   const browser = getBrowser();
   const result = await browser.sessions.releaseAll();
+
+  // Kill all local Chrome processes BEFORE deleting disk sessions
   const store = getSessionStore();
+  const { LocalBrowserService } = await import('../../testmu-cloud/services/local-browser-service');
+  const sessions = await store.list();
+  for (const session of sessions) {
+    await LocalBrowserService.killFromPidFile(session.id);
+  }
+
   await store.deleteAll();
   return result;
 }
