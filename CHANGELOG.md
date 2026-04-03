@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **BUG-013**: Cloud session page commands fail with WebSocket disconnect — added Puppeteer credential reconstruction on reconnect (parity with Playwright path)
+- **BUG-014**: Cloud session interactive commands return null page — added null page guard with `newPage()` fallback and improved error messages
+- **BUG-016**: Local session creation fails — improved Chrome discovery (WSL support), spawn error handling, PID guard, and diagnostic error messages
+- **BUG-019**: `run` command cannot resolve automation modules — corrected `__dirname` path resolution (3 levels up, not 2) and added `NODE_PATH` to child process env
+- **BUG-020**: Preload script strips user-provided `browserWSEndpoint` — patched Puppeteer and Playwright preloads to only override when user didn't provide their own endpoint
+- Playwright/Puppeteer navigation asymmetry — normalized URL matching (startsWith), timeouts (30s), and DOM readiness waits across both frameworks
+- Full-page screenshot CDP fallback — unified `Page.getLayoutMetrics` + clip capture for both Puppeteer and Playwright (previously Playwright-only)
+- Accessibility snapshot consistency — both frameworks now pass `interestingOnly: false` for consistent snapshot trees
+- Null safety: unsafe `split()[1]` in file download, non-null assertion on `Map.get()`, unguarded array access in LambdaTest API, CDP metrics null check
+
 ### Added
 - Steel.dev SDK full API parity
 - AI Agent computer actions (`sessions.computer()`) for mouse, keyboard, screenshot

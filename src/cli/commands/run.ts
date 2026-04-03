@@ -111,7 +111,8 @@ function buildHubUrl(username: string, accessKey: string): string {
 function generatePreloadScript(adapter: string, wsEndpoint: string, hubUrl: string): string {
   // Compute the plugin's node_modules path at generation time so the preload
   // can resolve automation packages even when run from a user's project dir.
-  const pluginNodeModules = path.resolve(__dirname, '../../node_modules');
+  // At runtime __dirname is dist/cli/commands/ — walk up 3 levels to reach the package root
+  const pluginNodeModules = path.resolve(__dirname, '../../../node_modules');
 
   const moduleResolutionPreamble = `
 // Ensure the plugin's node_modules is on the module search path
@@ -146,7 +147,10 @@ ${moduleResolutionPreamble}
           target.connect = async function(options) {
             console.error('[TestMu Cloud] Redirecting ' + label + '.connect() to LambdaTest cloud...');
             if (typeof options === 'object') {
-              options.browserWSEndpoint = WS_ENDPOINT;
+              // Only set browserWSEndpoint if user didn't provide one
+              if (!options.browserWSEndpoint) {
+                options.browserWSEndpoint = WS_ENDPOINT;
+              }
             } else {
               options = { browserWSEndpoint: WS_ENDPOINT };
             }
@@ -199,7 +203,12 @@ ${moduleResolutionPreamble}
             const originalConnect = bt.connect;
             bt.connect = async function(wsEndpointOrOptions) {
               console.error('[TestMu Cloud] Redirecting ' + name + '.connect() to LambdaTest cloud...');
-              return originalConnect.call(this, WS_ENDPOINT);
+              // Only override if user didn't provide their own endpoint
+              var endpoint = wsEndpointOrOptions;
+              if (!endpoint || (typeof endpoint === 'object' && !endpoint.wsEndpoint)) {
+                endpoint = WS_ENDPOINT;
+              }
+              return originalConnect.call(this, endpoint);
             };
             if (bt.launchPersistentContext) {
               bt.launchPersistentContext = async function(userDataDir, options) {
@@ -297,10 +306,15 @@ export async function executeRun(scriptPath: string, options: RunOptions): Promi
   const detectedAdapter = options.adapter || detectAdapter(scriptContent) || 'puppeteer';
   options._scriptPath = absolutePath;
 
+  // Resolve the plugin's node_modules so automation packages (puppeteer, playwright, etc.)
+  // are discoverable by the child process via NODE_PATH
+  const pluginNodeModules = path.resolve(__dirname, '../../../node_modules');
+
   const env: Record<string, string> = {
     ...process.env as Record<string, string>,
     LT_USERNAME: creds.username,
     LT_ACCESS_KEY: creds.accessKey,
+    NODE_PATH: [pluginNodeModules, process.env.NODE_PATH || ''].filter(Boolean).join(path.delimiter),
   };
 
   if (options.adapter) {

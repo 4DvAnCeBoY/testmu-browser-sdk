@@ -85,9 +85,13 @@ export class SnapshotService {
         try {
             const framework = detectFramework(page);
             if (framework === 'playwright') {
-                // Playwright's accessibility.snapshot() does not accept interestingOnly
-                // In Playwright >= 1.40 this API may be removed; catch gracefully
-                rawTree = await page.accessibility.snapshot();
+                // Try passing interestingOnly for consistency with Puppeteer path;
+                // some Playwright versions may not support the option, so fall back.
+                try {
+                    rawTree = await page.accessibility.snapshot({ interestingOnly: false } as any);
+                } catch {
+                    rawTree = await page.accessibility.snapshot();
+                }
             } else {
                 // Puppeteer supports interestingOnly option
                 rawTree = await page.accessibility.snapshot({ interestingOnly: false });

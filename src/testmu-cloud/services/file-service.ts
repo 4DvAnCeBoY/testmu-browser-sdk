@@ -293,7 +293,9 @@ export class FileService {
                 reader.onload = () => {
                     const dataUrl = reader.result as string;
                     // Remove "data:...;base64," prefix
-                    const base64 = dataUrl.split(',')[1];
+                    const parts = dataUrl.split(',');
+                    const base64 = parts[1];
+                    if (!base64) throw new Error('Invalid data URL format — missing base64 payload');
                     resolve(base64);
                 };
                 reader.readAsDataURL(blob);

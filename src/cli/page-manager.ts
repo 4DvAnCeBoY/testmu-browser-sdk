@@ -160,17 +160,20 @@ export async function getSessionPage(sessionId: string, options?: GetSessionPage
         const pages = context.pages();
 
         // 1. Try to find the page matching the last navigated URL
-        let page = lastUrl ? pages.find(p => p.url() === lastUrl) : undefined;
+        let page = lastUrl ? pages.find((p: any) => p.url() === lastUrl) : undefined;
         // 2. Fall back to any page with a real URL
-        if (!page) page = pages.find(p => isRealUrl(p.url()));
-        // 3. Fall back to last page or create new
-        if (!page) page = pages[pages.length - 1] || await context.newPage();
+        if (!page) page = pages.find((p: any) => isRealUrl(p.url()));
+        // 3. Fall back to last page or create new (safe: check length first)
+        if (!page && pages.length > 0) page = pages[pages.length - 1];
+        if (!page) page = await context.newPage();
 
         // If we have a last known URL and the page isn't on it, navigate there
         const pwUrl = page.url();
-        if (lastUrl && (!isRealUrl(pwUrl) || pwUrl !== lastUrl)) {
-            await page.goto(lastUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+        if (lastUrl && (!isRealUrl(pwUrl) || !pwUrl.startsWith(lastUrl.replace(/\/$/, '')))) {
+            await page.goto(lastUrl, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
         }
+        // Ensure DOM is ready (parity with Puppeteer path)
+        await page.waitForSelector('body', { timeout: 10000 }).catch(() => {});
 
         return {
             page,
@@ -184,15 +187,28 @@ export async function getSessionPage(sessionId: string, options?: GetSessionPage
             },
         };
     } else {
-        const browser = await puppeteer.connect({ browserWSEndpoint: session.websocketUrl });
+        // Reconstruct credentials for cloud sessions (stripped during disk save)
+        let wsUrl = session.websocketUrl;
+        if (wsUrl.startsWith('wss://') && !new URL(wsUrl).username) {
+            const config = new ConfigManager();
+            const creds = config.getCredentials();
+            if (creds.username && creds.accessKey) {
+                const parsed = new URL(wsUrl);
+                parsed.username = creds.username;
+                parsed.password = creds.accessKey;
+                wsUrl = parsed.toString();
+            }
+        }
+        const browser = await puppeteer.connect({ browserWSEndpoint: wsUrl });
         const pages = await browser.pages();
 
         // 1. Try to find the page matching the last navigated URL
         let page = lastUrl ? pages.find(p => p.url() === lastUrl) : undefined;
         // 2. Fall back to any page with a real URL
         if (!page) page = pages.find(p => isRealUrl(p.url()));
-        // 3. Fall back to last page or create new
-        if (!page) page = pages[pages.length - 1] || await browser.newPage();
+        // 3. Fall back to last page or create new (safe: check length first)
+        if (!page && pages.length > 0) page = pages[pages.length - 1];
+        if (!page) page = await browser.newPage();
 
         // Puppeteer CDP reconnection may leave the page on a different tab.
         // Only navigate if the page isn't already on the expected URL.

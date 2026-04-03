@@ -38,7 +38,8 @@ export class QuickActionsService {
     private async getPage(sessionId?: string): Promise<{ page: Page; cleanup: () => Promise<void> }> {
         if (sessionId && this.sessionPages.has(sessionId)) {
             // Use existing session page
-            const page = this.sessionPages.get(sessionId)!;
+            const page = this.sessionPages.get(sessionId);
+            if (!page) throw new Error(`No page found for session "${sessionId}". Session may have been released.`);
             return {
                 page,
                 cleanup: async () => { } // No cleanup needed for existing session

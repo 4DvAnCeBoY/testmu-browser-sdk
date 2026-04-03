@@ -38,7 +38,7 @@ export async function fetchDashboardUrl(
         });
 
         const json = JSON.parse(data);
-        if (json.data && json.data.length > 0) {
+        if (json.data && Array.isArray(json.data) && json.data.length > 0) {
             let entry = json.data[0];
             // If a testId was provided (e.g. from Selenium), try to match it
             if (options?.testId) {

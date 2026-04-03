@@ -14,18 +14,27 @@ export class LocalBrowserService {
     /** Find Chrome executable on the system */
     private findChrome(): string {
         const candidates = [
+            // macOS
             '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
             '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
             '/Applications/Chromium.app/Contents/MacOS/Chromium',
+            // Linux
             '/usr/bin/google-chrome',
             '/usr/bin/google-chrome-stable',
             '/usr/bin/chromium-browser',
             '/usr/bin/chromium',
+            // Windows (WSL/Cygwin)
+            '/mnt/c/Program Files/Google/Chrome/Application/chrome.exe',
+            '/mnt/c/Program Files (x86)/Google/Chrome/Application/chrome.exe',
         ];
         for (const c of candidates) {
             if (fs.existsSync(c)) return c;
         }
-        throw new Error('Chrome not found. Install Google Chrome or set CHROME_PATH env var.');
+        throw new Error(
+            'Chrome not found. Install Google Chrome or set CHROME_PATH env var.\n' +
+            'On macOS: brew install --cask google-chrome\n' +
+            'On Linux: apt install google-chrome-stable'
+        );
     }
 
     async launch(): Promise<{ websocketUrl: string, port: number, pid: number, profileDir: string, kill: () => Promise<void> }> {
@@ -40,27 +49,42 @@ export class LocalBrowserService {
             '--disable-gpu',
             '--no-first-run',
             '--no-default-browser-check',
+            '--disable-extensions',
+            '--disable-component-extensions-with-background-pages',
             '--remote-debugging-port=0', // Let OS assign a free port
             `--user-data-dir=${tmpProfile}`,
             'about:blank',
         ];
 
         // Detach Chrome so it survives the parent CLI process exiting
-        const chromeProcess: ChildProcess = spawn(chromePath, args, {
-            stdio: ['ignore', 'ignore', 'pipe'],
-            detached: true,
-        });
+        let chromeProcess: ChildProcess;
+        try {
+            chromeProcess = spawn(chromePath, args, {
+                stdio: ['ignore', 'ignore', 'pipe'],
+                detached: true,
+            });
+        } catch (err: any) {
+            throw new Error(`Failed to launch Chrome at "${chromePath}": ${err.message}`);
+        }
 
-        const chromePid = chromeProcess.pid!;
+        if (!chromeProcess.pid) {
+            throw new Error(`Failed to launch Chrome: process has no PID. Path: "${chromePath}"`);
+        }
+        const chromePid = chromeProcess.pid;
 
         // Wait for "DevTools listening on" message from stderr (includes OS-assigned port)
+        let stderrOutput = '';
         const websocketUrl = await new Promise<string>((resolve, reject) => {
             const timeout = setTimeout(() => {
-                reject(new Error('Chrome did not start within 10s'));
+                reject(new Error(
+                    `Chrome did not start within 10s. Path: "${chromePath}"\n` +
+                    `stderr output: ${stderrOutput.slice(0, 500)}`
+                ));
             }, 10000);
 
             chromeProcess.stderr?.on('data', (data: Buffer) => {
                 const line = data.toString();
+                stderrOutput += line;
                 const match = line.match(/DevTools listening on (ws:\/\/[^\s]+)/);
                 if (match) {
                     clearTimeout(timeout);
@@ -70,12 +94,15 @@ export class LocalBrowserService {
 
             chromeProcess.on('error', (err) => {
                 clearTimeout(timeout);
-                reject(err);
+                reject(new Error(`Chrome process error: ${err.message}. Path: "${chromePath}"`));
             });
 
             chromeProcess.on('exit', (code) => {
                 clearTimeout(timeout);
-                reject(new Error(`Chrome exited with code ${code} before DevTools was ready`));
+                reject(new Error(
+                    `Chrome exited with code ${code} before DevTools was ready. Path: "${chromePath}"\n` +
+                    `stderr: ${stderrOutput.slice(0, 500)}`
+                ));
             });
         });
 

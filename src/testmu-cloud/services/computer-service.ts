@@ -120,32 +120,37 @@ export class ComputerService {
      */
     private async captureScreenshot(page: any, fullPage: boolean): Promise<string> {
         const framework = detectFramework(page);
-        if (framework === 'playwright') {
-            // Try CDP Page.captureScreenshot first (more reliable on remote grids)
+
+        // Both frameworks: try CDP-based capture first for reliability on cloud grids
+        if (fullPage) {
             let cdpSession: any = null;
             try {
-                cdpSession = await page.context().newCDPSession(page);
-                const cdpParams: any = { format: 'png' };
-                if (fullPage) {
-                    // captureBeyondViewport is not a real CDP parameter;
-                    // use Page.getLayoutMetrics + clip for full-page capture
-                    const metrics = await cdpSession.send('Page.getLayoutMetrics');
-                    const { width, height } = metrics.cssContentSize || metrics.contentSize;
-                    cdpParams.clip = { x: 0, y: 0, width, height, scale: 1 };
+                cdpSession = framework === 'playwright'
+                    ? await page.context().newCDPSession(page)
+                    : await page.createCDPSession();
+                const metrics = await cdpSession.send('Page.getLayoutMetrics');
+                const contentSize = metrics.cssContentSize || metrics.contentSize;
+                if (contentSize && contentSize.width > 0 && contentSize.height > 0) {
+                    const result = await cdpSession.send('Page.captureScreenshot', {
+                        format: 'png',
+                        clip: { x: 0, y: 0, width: contentSize.width, height: contentSize.height, scale: 1 },
+                    });
+                    if (result.data) return result.data;
                 }
-                const result = await cdpSession.send('Page.captureScreenshot', cdpParams);
-                if (result.data) return result.data;
             } catch {
                 // CDP not available — fall through to standard API
             } finally {
                 if (cdpSession) {
-                    try { await cdpSession.detach(); } catch { /* ignore detach errors */ }
+                    try { await cdpSession.detach(); } catch { /* ignore */ }
                 }
             }
+        }
+
+        // Standard API fallback
+        if (framework === 'playwright') {
             const buf = await page.screenshot({ fullPage });
             return buf.toString('base64');
         }
-        // Puppeteer
         const screenshot = await page.screenshot({ encoding: 'base64', fullPage });
         return screenshot as string;
     }
