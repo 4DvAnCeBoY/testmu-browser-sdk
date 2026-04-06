@@ -136,6 +136,10 @@ export interface SessionConfig {
     extensionIds?: string[];
     headless?: boolean;
     timeout?: number;
+    /** Idle timeout in seconds for LambdaTest grid sessions (default: 900 = 15 min). Controls how long a session can be idle before auto-termination. */
+    idleTimeout?: number;
+    /** Heartbeat interval in seconds to keep cloud sessions alive (default: 60). Set to 0 to disable. Must be less than idleTimeout. */
+    heartbeatInterval?: number;
     userAgent?: string;
     deviceConfig?: DeviceConfig;
     debugConfig?: DebugConfig;

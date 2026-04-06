@@ -2,15 +2,21 @@
 import puppeteer, { Browser, Page } from 'puppeteer-core';
 import puppeteerExtra from '../utils/puppeteer-extra.js';
 import { ProfileService } from '../profile-service.js';
+import { HeartbeatService } from '../services/heartbeat-service.js';
 import { Session } from '../types.js';
 import { getRandomUserAgent, getRandomizedViewport } from '../stealth-utils.js';
 import { fetchDashboardUrl } from '../utils/lambdatest-api.js';
 
 export class PuppeteerAdapter {
     private profileService: ProfileService;
+    private heartbeatService: HeartbeatService | null = null;
 
     constructor() {
         this.profileService = new ProfileService();
+    }
+
+    setHeartbeatService(service: HeartbeatService): void {
+        this.heartbeatService = service;
     }
 
     async connect(session: Session): Promise<Browser> {
@@ -120,6 +126,19 @@ export class PuppeteerAdapter {
                 }
                 return originalClose();
             };
+        }
+
+        // Start heartbeat for cloud sessions to prevent idle-timeout
+        if (this.heartbeatService && !session.config.local && !session.config.customWebSocketUrl) {
+            const heartbeatInterval = session.config.heartbeatInterval;
+            if (heartbeatInterval !== 0) {
+                const intervalMs = (heartbeatInterval || 60) * 1000;
+                const pages = await browser.pages();
+                const heartbeatPage = pages[0] || await browser.newPage();
+                this.heartbeatService.start(session.id, async () => {
+                    await heartbeatPage.evaluate('1');
+                }, intervalMs);
+            }
         }
 
         return browser;

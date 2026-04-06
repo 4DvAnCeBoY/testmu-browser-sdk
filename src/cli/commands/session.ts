@@ -28,6 +28,8 @@ interface SessionCreateOptions {
   headless?: boolean;
   region?: string;
   timeout?: string;
+  idleTimeout?: string;
+  heartbeatInterval?: string;
   sessionContext?: string;
   credentials?: boolean;
   platformName?: string;
@@ -85,6 +87,8 @@ export async function executeSessionCreate(options: SessionCreateOptions): Promi
     headless: options.headless,
     region: options.region,
     timeout: options.timeout ? parseInt(options.timeout, 10) : undefined,
+    idleTimeout: options.idleTimeout ? parseInt(options.idleTimeout, 10) : undefined,
+    heartbeatInterval: options.heartbeatInterval ? parseInt(options.heartbeatInterval, 10) : undefined,
     sessionContext,
     credentials: options.credentials ? {} : undefined,
     lambdatestOptions: Object.keys(lambdatestOptions).length > 0 ? lambdatestOptions : undefined,
@@ -166,6 +170,8 @@ export function registerSessionCommand(program: any): void {
     .option('--headless', 'Run in headless mode')
     .option('--region <region>', 'Cloud region')
     .option('--timeout <ms>', 'Session timeout in ms')
+    .option('--idle-timeout <seconds>', 'Idle timeout in seconds for LambdaTest grid (default: 900 = 15 min)')
+    .option('--heartbeat-interval <seconds>', 'Heartbeat interval in seconds to keep session alive (default: 60, 0 to disable)')
     .option('--session-context <path>', 'Path to JSON file with saved auth context (cookies, localStorage)')
     .option('--credentials', 'Enable auto-fill credentials')
     .option('--platform-name <name>', 'Platform name, e.g. "Windows 11", "macOS Sonoma"')

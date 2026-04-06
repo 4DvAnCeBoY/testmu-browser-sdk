@@ -187,6 +187,9 @@ export class SessionManager {
                 ltOptions.headless = config.headless;
             }
 
+            // Handle idle timeout (in seconds, default 900 = 15 min)
+            ltOptions.idleTimeout = config.idleTimeout ?? 900;
+
             // Handle extensions via extensionIds config
             if (config.extensionIds && config.extensionIds.length > 0 && this.extensionService) {
                 const cloudUrls = await this.extensionService.getCloudUrls(config.extensionIds);

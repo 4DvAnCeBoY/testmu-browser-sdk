@@ -33,6 +33,7 @@ import { TunnelService } from './services/tunnel-service.js';
 import { ComputerService } from './services/computer-service.js';
 import { ContextService } from './services/context-service.js';
 import { EventsService } from './services/events-service.js';
+import { HeartbeatService } from './services/heartbeat-service.js';
 
 // Page Tools (agent-browser parity)
 import { PageService } from './services/page-service.js';
@@ -92,6 +93,9 @@ export class Browser {
     public snapshotService: SnapshotService;
     public network: NetworkService;
 
+    // Heartbeat (keeps cloud sessions alive)
+    public heartbeat: HeartbeatService;
+
     constructor() {
         this.sessionManager = new SessionManager();
 
@@ -120,12 +124,19 @@ export class Browser {
         this.page = new PageService(this.snapshotService, refStore);
         this.network = new NetworkService();
 
+        // Heartbeat — keeps cloud sessions alive during agent idle periods
+        this.heartbeat = new HeartbeatService();
+        this.puppeteer.setHeartbeatService(this.heartbeat);
+        this.playwright.setHeartbeatService(this.heartbeat);
+        this.selenium.setHeartbeatService(this.heartbeat);
+
         // Pass services to SessionManager for automatic handling
         this.sessionManager.setTunnelService(this.tunnel);
         this.sessionManager.setExtensionService(this.extensions);
 
         // Wire service cleanup on session release to prevent memory leaks
         this.sessionManager.onRelease((sessionId: string) => {
+            this.heartbeat.stop(sessionId);
             this.network.clearSession(sessionId);
             this.snapshotService.clearSession(sessionId);
             this.captcha.clearSession(sessionId);
@@ -279,6 +290,7 @@ export { TunnelService } from './services/tunnel-service.js';
 export { ComputerService } from './services/computer-service.js';
 export { ContextService } from './services/context-service.js';
 export { EventsService } from './services/events-service.js';
+export { HeartbeatService } from './services/heartbeat-service.js';
 
 // Page Tools
 export { PageService } from './services/page-service.js';

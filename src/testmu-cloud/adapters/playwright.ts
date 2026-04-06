@@ -1,15 +1,21 @@
 
 import { chromium, Browser, BrowserContext, Page } from 'playwright-core';
 import { ProfileService } from '../profile-service.js';
+import { HeartbeatService } from '../services/heartbeat-service.js';
 import { Session, StealthConfig } from '../types.js';
 import { getRandomUserAgent, getRandomizedViewport } from '../stealth-utils.js';
 import { fetchDashboardUrl } from '../utils/lambdatest-api.js';
 
 export class PlaywrightAdapter {
     private profileService: ProfileService;
+    private heartbeatService: HeartbeatService | null = null;
 
     constructor() {
         this.profileService = new ProfileService();
+    }
+
+    setHeartbeatService(service: HeartbeatService): void {
+        this.heartbeatService = service;
     }
 
     async connect(session: Session): Promise<{ browser: Browser, context: BrowserContext, page: Page }> {
@@ -142,6 +148,17 @@ export class PlaywrightAdapter {
                 }
                 return originalClose();
             };
+        }
+
+        // Start heartbeat for cloud sessions to prevent idle-timeout
+        if (this.heartbeatService && !session.config.local && !session.config.customWebSocketUrl) {
+            const heartbeatInterval = session.config.heartbeatInterval;
+            if (heartbeatInterval !== 0) {
+                const intervalMs = (heartbeatInterval || 60) * 1000;
+                this.heartbeatService.start(session.id, async () => {
+                    await page.evaluate('1');
+                }, intervalMs);
+            }
         }
 
         return { browser, context, page };

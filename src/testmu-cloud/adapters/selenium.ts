@@ -1,11 +1,18 @@
 
 import { Builder, WebDriver, Capabilities } from 'selenium-webdriver';
 import { Session } from '../types.js';
+import { HeartbeatService } from '../services/heartbeat-service.js';
 import { fetchDashboardUrl } from '../utils/lambdatest-api.js';
 
 const LT_HUB_URL = 'https://hub.lambdatest.com/wd/hub';
 
 export class SeleniumAdapter {
+    private heartbeatService: HeartbeatService | null = null;
+
+    setHeartbeatService(service: HeartbeatService): void {
+        this.heartbeatService = service;
+    }
+
     async connect(session: Session): Promise<WebDriver> {
         console.log(`Selenium Adapter: Connecting to session ${session.id}...`);
 
@@ -105,6 +112,17 @@ export class SeleniumAdapter {
                 }
                 return originalQuit();
             };
+        }
+
+        // Start heartbeat for cloud sessions to prevent idle-timeout
+        if (this.heartbeatService) {
+            const heartbeatInterval = config.heartbeatInterval;
+            if (heartbeatInterval !== 0) {
+                const intervalMs = (heartbeatInterval || 60) * 1000;
+                this.heartbeatService.start(session.id, async () => {
+                    await driver.getCurrentUrl();
+                }, intervalMs);
+            }
         }
 
         return driver;
