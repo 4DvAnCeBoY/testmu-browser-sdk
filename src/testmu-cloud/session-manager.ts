@@ -188,7 +188,17 @@ export class SessionManager {
             }
 
             // Handle idle timeout (in seconds, default 900 = 15 min)
-            ltOptions.idleTimeout = config.idleTimeout ?? 900;
+            const resolvedIdleTimeout = config.idleTimeout ?? 900;
+            ltOptions.idleTimeout = resolvedIdleTimeout;
+
+            // Validate heartbeat interval is less than idle timeout
+            if (config.heartbeatInterval && config.heartbeatInterval >= resolvedIdleTimeout) {
+                console.warn(
+                    `Warning: heartbeatInterval (${config.heartbeatInterval}s) >= idleTimeout (${resolvedIdleTimeout}s). ` +
+                    `Auto-clamping heartbeat to ${Math.floor(resolvedIdleTimeout / 2)}s.`
+                );
+                config.heartbeatInterval = Math.floor(resolvedIdleTimeout / 2);
+            }
 
             // Handle extensions via extensionIds config
             if (config.extensionIds && config.extensionIds.length > 0 && this.extensionService) {

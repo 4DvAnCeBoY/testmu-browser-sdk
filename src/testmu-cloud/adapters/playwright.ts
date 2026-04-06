@@ -156,7 +156,10 @@ export class PlaywrightAdapter {
             if (heartbeatInterval !== 0) {
                 const intervalMs = (heartbeatInterval || 60) * 1000;
                 this.heartbeatService.start(session.id, async () => {
-                    await page.evaluate('1');
+                    const pages = context.pages();
+                    if (pages.length > 0) {
+                        await pages[0].evaluate('1');
+                    }
                 }, intervalMs);
             }
         }

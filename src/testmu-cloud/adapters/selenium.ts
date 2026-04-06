@@ -115,7 +115,7 @@ export class SeleniumAdapter {
         }
 
         // Start heartbeat for cloud sessions to prevent idle-timeout
-        if (this.heartbeatService) {
+        if (this.heartbeatService && !session.config.local && !session.config.customWebSocketUrl) {
             const heartbeatInterval = config.heartbeatInterval;
             if (heartbeatInterval !== 0) {
                 const intervalMs = (heartbeatInterval || 60) * 1000;

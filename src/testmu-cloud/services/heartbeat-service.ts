@@ -9,6 +9,10 @@
  */
 export class HeartbeatService {
     private timers = new Map<string, ReturnType<typeof setInterval>>();
+    private failureCounts = new Map<string, number>();
+
+    /** Max consecutive ping failures before stopping the heartbeat. */
+    private static readonly MAX_FAILURES = 3;
 
     /**
      * Start sending heartbeats for a session.
@@ -22,15 +26,24 @@ export class HeartbeatService {
         // Don't double-register
         this.stop(sessionId);
 
+        this.failureCounts.set(sessionId, 0);
         console.error(`Heartbeat: started for session ${sessionId} (every ${intervalMs / 1000}s)`);
 
         const timer = setInterval(async () => {
             try {
                 await pingFn();
+                // Reset failure count on success
+                this.failureCounts.set(sessionId, 0);
             } catch {
-                // Ping failed — session is likely gone. Clean up silently.
-                console.error(`Heartbeat: ping failed for session ${sessionId}, stopping`);
-                this.stop(sessionId);
+                const failures = (this.failureCounts.get(sessionId) || 0) + 1;
+                this.failureCounts.set(sessionId, failures);
+
+                if (failures >= HeartbeatService.MAX_FAILURES) {
+                    console.error(`Heartbeat: ${failures} consecutive failures for session ${sessionId}, stopping`);
+                    this.stop(sessionId);
+                } else {
+                    console.error(`Heartbeat: ping failed for session ${sessionId} (${failures}/${HeartbeatService.MAX_FAILURES}), will retry`);
+                }
             }
         }, intervalMs);
 
@@ -46,6 +59,7 @@ export class HeartbeatService {
         if (timer) {
             clearInterval(timer);
             this.timers.delete(sessionId);
+            this.failureCounts.delete(sessionId);
             console.error(`Heartbeat: stopped for session ${sessionId}`);
         }
     }

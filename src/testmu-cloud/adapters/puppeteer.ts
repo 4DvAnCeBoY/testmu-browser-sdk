@@ -133,10 +133,11 @@ export class PuppeteerAdapter {
             const heartbeatInterval = session.config.heartbeatInterval;
             if (heartbeatInterval !== 0) {
                 const intervalMs = (heartbeatInterval || 60) * 1000;
-                const pages = await browser.pages();
-                const heartbeatPage = pages[0] || await browser.newPage();
                 this.heartbeatService.start(session.id, async () => {
-                    await heartbeatPage.evaluate('1');
+                    const pages = await browser.pages();
+                    if (pages.length > 0) {
+                        await pages[0].evaluate('1');
+                    }
                 }, intervalMs);
             }
         }
